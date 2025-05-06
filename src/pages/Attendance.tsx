@@ -241,7 +241,7 @@ const Attendance = () => {
                           <Badge
                             variant={
                               attendance.status === "Present" ? "default" :
-                              attendance.status === "On Leave" ? "warning" : "destructive"
+                              attendance.status === "On Leave" ? "outline" : "destructive"
                             }
                           >
                             {attendance.status}
@@ -304,7 +304,7 @@ const Attendance = () => {
                           <Badge
                             variant={
                               attendance.status === "Present" ? "default" :
-                              attendance.status === "On Leave" ? "warning" : "destructive"
+                              attendance.status === "On Leave" ? "outline" : "destructive"
                             }
                           >
                             {attendance.status}

@@ -161,7 +161,7 @@ const Employees = () => {
                       <Badge
                         variant={
                           employee.status === "Active" ? "default" :
-                          employee.status === "On Leave" ? "warning" : "secondary"
+                          employee.status === "On Leave" ? "outline" : "secondary"
                         }
                       >
                         {employee.status}
