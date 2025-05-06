@@ -11,6 +11,9 @@ import Leave from "./pages/Leave";
 import Attendance from "./pages/Attendance";
 import Claims from "./pages/Claims";
 import Performance from "./pages/Performance";
+import Onboarding from "./pages/Onboarding";
+import Analytics from "./pages/Analytics";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +32,9 @@ const App = () => (
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/claims" element={<Claims />} />
           <Route path="/performance" element={<Performance />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
