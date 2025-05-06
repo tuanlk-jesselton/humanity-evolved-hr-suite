@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +17,8 @@ import {
   ExternalLink,
   Check
 } from 'lucide-react';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Badge } from '@/components/ui/badge';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('subscription');
