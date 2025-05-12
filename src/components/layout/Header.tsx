@@ -3,6 +3,7 @@ import { Bell, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { AuthMenu } from '@/components/auth/AuthMenu';
 
 export function Header() {
   return (
@@ -22,6 +23,7 @@ export function Header() {
           <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500"></span>
         </Button>
         <ThemeToggle />
+        <AuthMenu role="Super Admin" username="Admin User" />
       </div>
     </header>
   );
