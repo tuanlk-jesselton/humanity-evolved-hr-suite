@@ -1,9 +1,9 @@
 
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { UserPlus, Search, Filter, Download, MoreHorizontal } from 'lucide-react';
+import { UserPlus, Search, Filter, Download, MoreHorizontal, Users } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Link } from 'react-router-dom';
 
 const employees = [
   {
@@ -102,10 +103,18 @@ const Employees = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight">Employees</h1>
-          <Button>
-            <UserPlus size={16} className="mr-2" />
-            Add Employee
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/org-chart">
+                <Users size={16} className="mr-2" />
+                Org Chart
+              </Link>
+            </Button>
+            <Button>
+              <UserPlus size={16} className="mr-2" />
+              Add Employee
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
@@ -150,7 +159,9 @@ const Employees = () => {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium">{employee.name}</p>
+                          <Link to={`/employees/${employee.id}`}>
+                            <p className="font-medium hover:text-primary">{employee.name}</p>
+                          </Link>
                           <p className="text-sm text-muted-foreground">{employee.email}</p>
                         </div>
                       </div>
@@ -175,7 +186,9 @@ const Employees = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Profile</DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to={`/employees/${employee.id}`}>View Profile</Link>
+                          </DropdownMenuItem>
                           <DropdownMenuItem>Edit</DropdownMenuItem>
                           <DropdownMenuItem>Manage Leave</DropdownMenuItem>
                           <DropdownMenuItem>View Payroll</DropdownMenuItem>
