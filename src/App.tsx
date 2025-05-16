@@ -3,9 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
-import Login from "./pages/Login";
+import LoginPage from "./components/auth/LoginPage";
 import Register from "./pages/Register";
 import CompanySetup from "./pages/CompanySetup";
 import Employees from "./pages/Employees";
@@ -26,44 +26,91 @@ import Documents from "./pages/Documents";
 import Reports from "./pages/Reports";
 import Company from "./pages/Company";
 import Compliance from "./pages/Compliance";
+import SuperAdmin from "./pages/SuperAdmin";
+import CompanyAdmin from "./pages/CompanyAdmin";
+import ManagerDashboardPage from "./pages/ManagerDashboard";
+import EmployeeDashboardPage from "./pages/EmployeeDashboard";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/company-setup" element={<CompanySetup />} />
-          <Route path="/" element={<Index />} />
-          <Route path="/employees" element={<Employees />} />
-          <Route path="/employees/:id" element={<EmployeeProfile />} />
-          <Route path="/org-chart" element={<OrgChartPage />} />
-          <Route path="/payroll" element={<Payroll />} />
-          <Route path="/leave" element={<Leave />} />
-          <Route path="/attendance" element={<Attendance />} />
-          <Route path="/claims" element={<Claims />} />
-          <Route path="/performance" element={<Performance />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/settings" element={<Settings />} />
-          
-          {/* Gusto-like routes */}
-          <Route path="/time-tracking" element={<TimeTracking />} />
-          <Route path="/benefits" element={<Benefits />} />
-          <Route path="/documents" element={<Documents />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/company" element={<Company />} />
-          <Route path="/compliance" element={<Compliance />} />
-          
-          {/* Catch-all for 404 */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<Register />} />
+            
+            {/* Role-specific Dashboards */}
+            <Route path="/super-admin" element={
+              <ProtectedRoute allowedRoles={['Super Admin']}>
+                <SuperAdmin />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/company-admin" element={
+              <ProtectedRoute allowedRoles={['Company Admin']}>
+                <CompanyAdmin />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/manager-dashboard" element={
+              <ProtectedRoute allowedRoles={['Manager']}>
+                <ManagerDashboardPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/employee-dashboard" element={
+              <ProtectedRoute allowedRoles={['Employee']}>
+                <EmployeeDashboardPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Setup Routes */}
+            <Route path="/company-setup" element={
+              <ProtectedRoute allowedRoles={['Super Admin', 'Company Admin']}>
+                <CompanySetup />
+              </ProtectedRoute>
+            } />
+            
+            {/* Common App Routes Protected By Authentication */}
+            <Route element={<ProtectedRoute allowedRoles={['Super Admin', 'Company Admin', 'Manager', 'Employee']} />}>
+              <Route path="/" element={<Index />} />
+              <Route path="/employees" element={<Employees />} />
+              <Route path="/employees/:id" element={<EmployeeProfile />} />
+              <Route path="/org-chart" element={<OrgChartPage />} />
+              <Route path="/payroll" element={<Payroll />} />
+              <Route path="/leave" element={<Leave />} />
+              <Route path="/attendance" element={<Attendance />} />
+              <Route path="/claims" element={<Claims />} />
+              <Route path="/performance" element={<Performance />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/settings" element={<Settings />} />
+              
+              {/* Additional Routes */}
+              <Route path="/time-tracking" element={<TimeTracking />} />
+              <Route path="/benefits" element={<Benefits />} />
+              <Route path="/documents" element={<Documents />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/company" element={<Company />} />
+              <Route path="/compliance" element={<Compliance />} />
+            </Route>
+            
+            {/* Default route redirect */}
+            <Route index element={<Navigate to="/login" replace />} />
+            
+            {/* Catch-all for 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

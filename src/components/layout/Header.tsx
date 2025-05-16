@@ -23,7 +23,7 @@ export function Header() {
           <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500"></span>
         </Button>
         <ThemeToggle />
-        <AuthMenu role="Super Admin" username="Admin User" />
+        <AuthMenu />
       </div>
     </header>
   );

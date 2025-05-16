@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,8 @@ import {
   Shield,
   TrendingUp
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Logo } from '@/components/common/Logo';
 
 type NavItemProps = {
   to: string;
@@ -85,9 +87,28 @@ const NavSection = ({
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-
+  const { userRole, userEmail } = useAuth();
+  const location = useLocation();
+  
+  // Get dashboard route based on user role
+  const getDashboardRoute = () => {
+    switch (userRole) {
+      case 'Super Admin':
+        return '/super-admin';
+      case 'Company Admin':
+        return '/company-admin';
+      case 'Manager':
+        return '/manager-dashboard';
+      case 'Employee':
+        return '/employee-dashboard';
+      default:
+        return '/';
+    }
+  };
+  
+  // Main navigation items
   const mainNavItems = [
-    { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+    { to: getDashboardRoute(), icon: LayoutDashboard, label: "Dashboard" },
     { to: "/employees", icon: Users, label: "People" },
     { to: "/payroll", icon: Banknote, label: "Payroll" },
     { to: "/benefits", icon: PiggyBank, label: "Benefits" },
@@ -95,6 +116,7 @@ export function Sidebar() {
     { to: "/leave", icon: Calendar, label: "Time Off" }
   ];
 
+  // Secondary navigation items
   const secondaryNavItems = [
     { to: "/claims", icon: FileText, label: "Expenses" },
     { to: "/documents", icon: FileText, label: "Documents" },
@@ -102,6 +124,11 @@ export function Sidebar() {
     { to: "/compliance", icon: Shield, label: "Compliance" },
     { to: "/company", icon: Building, label: "Company" },
     { to: "/settings", icon: Settings, label: "Settings" }
+  ];
+  
+  // Super Admin specific items
+  const superAdminItems = [
+    { to: "/super-admin", icon: Shield, label: "Platform Admin" },
   ];
 
   return (
@@ -114,7 +141,7 @@ export function Sidebar() {
       <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
         {!collapsed && (
           <div className="font-semibold text-lg text-sidebar-primary">
-            HumanityHR
+            <Logo size="medium" />
           </div>
         )}
         <Button 
@@ -128,6 +155,9 @@ export function Sidebar() {
       </div>
       
       <div className="flex-1 overflow-y-auto py-4">
+        {userRole === 'Super Admin' && (
+          <NavSection title="Super Admin" items={superAdminItems} isCollapsed={collapsed} />
+        )}
         <NavSection title="Main" items={mainNavItems} isCollapsed={collapsed} />
         <NavSection title="Administration" items={secondaryNavItems} isCollapsed={collapsed} />
       </div>
@@ -136,11 +166,11 @@ export function Sidebar() {
         {!collapsed && (
           <div className="flex items-center space-x-2">
             <div className="h-8 w-8 rounded-full bg-sidebar-primary flex items-center justify-center text-white font-semibold">
-              A
+              {userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
             </div>
             <div>
-              <p className="text-sm font-medium text-sidebar-foreground">Admin User</p>
-              <p className="text-xs text-sidebar-foreground/60">admin@humanity.hr</p>
+              <p className="text-sm font-medium text-sidebar-foreground">{userRole || 'User'}</p>
+              <p className="text-xs text-sidebar-foreground/60">{userEmail || 'user@example.com'}</p>
             </div>
           </div>
         )}
