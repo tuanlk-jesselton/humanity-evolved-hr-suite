@@ -16,7 +16,11 @@ import {
   ChevronRight,
   UserPlus,
   PiggyBank,
-  Bell
+  Bell,
+  Building,
+  CreditCard,
+  Shield,
+  TrendingUp
 } from 'lucide-react';
 
 type NavItemProps = {
@@ -84,17 +88,19 @@ export function Sidebar() {
 
   const mainNavItems = [
     { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-    { to: "/employees", icon: Users, label: "Employees" },
+    { to: "/employees", icon: Users, label: "People" },
     { to: "/payroll", icon: Banknote, label: "Payroll" },
-    { to: "/leave", icon: Calendar, label: "Leave" },
-    { to: "/attendance", icon: Clock, label: "Attendance" }
+    { to: "/benefits", icon: PiggyBank, label: "Benefits" },
+    { to: "/time-tracking", icon: Clock, label: "Time Tracking" },
+    { to: "/leave", icon: Calendar, label: "Time Off" }
   ];
 
   const secondaryNavItems = [
-    { to: "/claims", icon: FileText, label: "Claims" },
-    { to: "/performance", icon: Award, label: "Performance" },
-    { to: "/onboarding", icon: UserPlus, label: "Onboarding" },
-    { to: "/benefits", icon: PiggyBank, label: "Benefits" },
+    { to: "/claims", icon: FileText, label: "Expenses" },
+    { to: "/documents", icon: FileText, label: "Documents" },
+    { to: "/reports", icon: TrendingUp, label: "Reports" },
+    { to: "/compliance", icon: Shield, label: "Compliance" },
+    { to: "/company", icon: Building, label: "Company" },
     { to: "/settings", icon: Settings, label: "Settings" }
   ];
 

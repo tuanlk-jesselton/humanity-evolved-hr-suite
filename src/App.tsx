@@ -18,6 +18,12 @@ import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import TimeTracking from "./pages/TimeTracking";
+import Benefits from "./pages/Benefits";
+import Documents from "./pages/Documents";
+import Reports from "./pages/Reports";
+import Company from "./pages/Company";
+import Compliance from "./pages/Compliance";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +47,15 @@ const App = () => (
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
+          
+          {/* New Gusto-like routes */}
+          <Route path="/time-tracking" element={<TimeTracking />} />
+          <Route path="/benefits" element={<Benefits />} />
+          <Route path="/documents" element={<Documents />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/company" element={<Company />} />
+          <Route path="/compliance" element={<Compliance />} />
+          
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
