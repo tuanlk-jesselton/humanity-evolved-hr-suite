@@ -5,6 +5,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import CompanySetup from "./pages/CompanySetup";
 import Employees from "./pages/Employees";
 import EmployeeProfile from "./pages/EmployeeProfile";
 import OrgChartPage from "./pages/OrgChart";
@@ -16,7 +19,6 @@ import Performance from "./pages/Performance";
 import Onboarding from "./pages/Onboarding";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
-import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import TimeTracking from "./pages/TimeTracking";
 import Benefits from "./pages/Benefits";
@@ -35,6 +37,8 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/company-setup" element={<CompanySetup />} />
           <Route path="/" element={<Index />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/employees/:id" element={<EmployeeProfile />} />
@@ -48,7 +52,7 @@ const App = () => (
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
           
-          {/* New Gusto-like routes */}
+          {/* Gusto-like routes */}
           <Route path="/time-tracking" element={<TimeTracking />} />
           <Route path="/benefits" element={<Benefits />} />
           <Route path="/documents" element={<Documents />} />
@@ -56,7 +60,7 @@ const App = () => (
           <Route path="/company" element={<Company />} />
           <Route path="/compliance" element={<Compliance />} />
           
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* Catch-all for 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

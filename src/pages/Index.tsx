@@ -2,6 +2,7 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DashboardStats } from '@/components/dashboard/DashboardStats';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
+import { WelcomeOnboarding } from '@/components/dashboard/WelcomeOnboarding';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,6 +33,8 @@ const Index = () => {
     <MainLayout>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        
+        <WelcomeOnboarding />
         
         <DashboardStats />
         
