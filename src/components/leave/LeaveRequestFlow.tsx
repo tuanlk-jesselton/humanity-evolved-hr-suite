@@ -63,6 +63,12 @@ export function LeaveRequestFlow() {
     setSelectedLeaveRequest(leaveRequest);
     setApprovalDialogOpen(true);
   };
+
+  const handleLeaveSubmit = (leaveData: any) => {
+    toast.success('Leave request submitted successfully');
+    // In a real app, we would make an API call here
+    console.log('Leave data submitted:', leaveData);
+  };
   
   // Different view based on user role
   const showPendingApprovals = userRole === 'Manager' || userRole === 'Company Admin' || userRole === 'Super Admin';
@@ -362,7 +368,8 @@ export function LeaveRequestFlow() {
       {/* Dialogs */}
       <LeaveRequestDialog 
         open={requestDialogOpen} 
-        onOpenChange={setRequestDialogOpen} 
+        onOpenChange={setRequestDialogOpen}
+        onSubmit={handleLeaveSubmit}
       />
       <LeaveApprovalDialog
         open={approvalDialogOpen}

@@ -10,11 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { CalendarIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, differenceInBusinessDays, addDays } from 'date-fns';
+import { toast } from 'sonner';
 
 interface LeaveRequestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (leaveData: any) => void;
+  onSubmit?: (leaveData: any) => void;
 }
 
 export function LeaveRequestDialog({ open, onOpenChange, onSubmit }: LeaveRequestDialogProps) {
@@ -47,7 +48,13 @@ export function LeaveRequestDialog({ open, onOpenChange, onSubmit }: LeaveReques
       // We would handle attachment upload separately in a real app
     };
     
-    onSubmit(leaveData);
+    if (onSubmit) {
+      onSubmit(leaveData);
+    } else {
+      // Default behavior when no onSubmit is provided
+      toast.success('Leave request submitted successfully');
+    }
+    
     resetForm();
     onOpenChange(false);
   };

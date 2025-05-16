@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { LeaveRequestDialog } from '@/components/leave/LeaveRequestDialog';
 import { useState } from 'react';
 import { Progress } from '@/components/ui/progress';
+import { toast } from 'react-toastify';
 
 // Dummy data for my upcoming time off
 const upcomingTimeOff = [
@@ -43,6 +43,12 @@ const notifications = [
 export function EmployeeDashboard() {
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   
+  const handleLeaveSubmit = (leaveData: any) => {
+    toast.success('Leave request submitted successfully');
+    // In a real app, this would make an API call
+    console.log('Leave data submitted:', leaveData);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -243,7 +249,11 @@ export function EmployeeDashboard() {
               </div>
             </CardContent>
           </Card>
-          <LeaveRequestDialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen} />
+          <LeaveRequestDialog 
+            open={leaveDialogOpen} 
+            onOpenChange={setLeaveDialogOpen} 
+            onSubmit={handleLeaveSubmit}
+          />
         </TabsContent>
         
         <TabsContent value="pay" className="pt-4">

@@ -31,7 +31,7 @@ const teamMembers = [
 const pendingApprovals = [
   { id: 1, type: "Leave", employee: { name: "David Wong", role: "Backend Developer", avatar: "" }, 
     requestDate: "2023-07-12", startDate: "2023-08-01", endDate: "2023-08-05", days: 5, reason: "Family vacation", 
-    type: "Annual Leave", status: "Pending", manager: "Jane Smith" },
+    leaveType: "Annual Leave", status: "Pending", manager: "Jane Smith" },
   { id: 2, type: "Expense", employee: { name: "Emily Rodriguez", role: "QA Engineer", avatar: "" },
     amount: 175.50, date: "2023-07-10", category: "Office Supplies", description: "Ergonomic keyboard and mouse", status: "Pending" },
   { id: 3, type: "Performance Review", employee: { name: "Sarah Chen", role: "Frontend Developer", avatar: "" },

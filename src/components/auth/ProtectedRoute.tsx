@@ -1,15 +1,18 @@
 
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { ReactNode } from 'react';
 
 interface ProtectedRouteProps {
   allowedRoles: Array<'Super Admin' | 'Company Admin' | 'Manager' | 'Employee'>;
   redirectTo?: string;
+  children?: ReactNode;
 }
 
 export function ProtectedRoute({ 
   allowedRoles, 
-  redirectTo = '/login'
+  redirectTo = '/login',
+  children
 }: ProtectedRouteProps) {
   const { isAuthenticated, userRole } = useAuth();
 
@@ -34,5 +37,5 @@ export function ProtectedRoute({
   }
 
   // User is authenticated and has an allowed role
-  return <Outlet />;
+  return children ? <>{children}</> : <Outlet />;
 }
