@@ -1,4 +1,5 @@
 
+import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,10 +12,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, CheckCircle, Clock, CalendarPlus, XCircle, Filter } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, Clock, CalendarPlus, XCircle, Filter, FileText } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { toast } from 'sonner';
+import { LeaveRequestDialog } from '@/components/leave/LeaveRequestDialog';
+import { LeaveApprovalDialog } from '@/components/leave/LeaveApprovalDialog';
 
 const pendingLeaves = [
   {
@@ -23,6 +27,7 @@ const pendingLeaves = [
       name: "Sarah Chen",
       avatar: "https://randomuser.me/api/portraits/women/21.jpg",
       position: "Frontend Developer",
+      email: "schen@example.com"
     },
     type: "Annual Leave",
     startDate: "2025-05-10",
@@ -30,6 +35,8 @@ const pendingLeaves = [
     days: 5,
     status: "Pending",
     requestDate: "2025-05-02",
+    reason: "Family vacation",
+    manager: "David Wong"
   },
   {
     id: "LEA-002",
@@ -37,6 +44,7 @@ const pendingLeaves = [
       name: "Michael Wong",
       avatar: "https://randomuser.me/api/portraits/men/56.jpg",
       position: "Backend Developer",
+      email: "mwong@example.com"
     },
     type: "Sick Leave",
     startDate: "2025-05-08",
@@ -44,6 +52,8 @@ const pendingLeaves = [
     days: 2,
     status: "Pending",
     requestDate: "2025-05-03",
+    reason: "Medical appointment",
+    manager: "Sarah Chen"
   },
   {
     id: "LEA-003",
@@ -51,6 +61,7 @@ const pendingLeaves = [
       name: "Emily Johnson",
       avatar: "https://randomuser.me/api/portraits/women/45.jpg",
       position: "UX Designer",
+      email: "ejohnson@example.com"
     },
     type: "Annual Leave",
     startDate: "2025-05-20",
@@ -58,6 +69,8 @@ const pendingLeaves = [
     days: 5,
     status: "Pending",
     requestDate: "2025-05-04",
+    reason: "Personal time",
+    manager: "Robert Wilson"
   },
 ];
 
@@ -68,6 +81,7 @@ const approvedLeaves = [
       name: "James Rodriguez",
       avatar: "https://randomuser.me/api/portraits/men/32.jpg",
       position: "Product Manager",
+      email: "jrodriguez@example.com"
     },
     type: "Annual Leave",
     startDate: "2025-05-05",
@@ -75,6 +89,9 @@ const approvedLeaves = [
     days: 3,
     status: "Approved",
     requestDate: "2025-04-28",
+    reason: "Family event",
+    approvedBy: "Jessica Taylor",
+    approvalDate: "2025-04-29"
   },
   {
     id: "LEA-005",
@@ -82,6 +99,7 @@ const approvedLeaves = [
       name: "Anna Smith",
       avatar: "https://randomuser.me/api/portraits/women/81.jpg",
       position: "Marketing Specialist",
+      email: "asmith@example.com"
     },
     type: "Medical Leave",
     startDate: "2025-05-12",
@@ -89,6 +107,9 @@ const approvedLeaves = [
     days: 3,
     status: "Approved",
     requestDate: "2025-04-30",
+    reason: "Medical procedure",
+    approvedBy: "Robert Wilson",
+    approvalDate: "2025-05-01"
   },
 ];
 
@@ -126,12 +147,84 @@ const leaveBalances = [
 ];
 
 const Leave = () => {
+  const [showLeaveRequestDialog, setShowLeaveRequestDialog] = useState(false);
+  const [showLeaveApprovalDialog, setShowLeaveApprovalDialog] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState<any>(null);
+  const [leaveRequests, setLeaveRequests] = useState(pendingLeaves);
+  const [approvedRequests, setApprovedRequests] = useState(approvedLeaves);
+  const [activeTab, setActiveTab] = useState('pending');
+  
+  const handleApproveLeave = (leaveId: string) => {
+    const leaveToApprove = leaveRequests.find(leave => leave.id === leaveId);
+    if (leaveToApprove) {
+      setSelectedLeave(leaveToApprove);
+      setShowLeaveApprovalDialog(true);
+    }
+  };
+  
+  const handleRejectLeave = (leaveId: string) => {
+    // Find the leave request
+    const leave = leaveRequests.find(l => l.id === leaveId);
+    if (!leave) return;
+    
+    // Remove from pending
+    setLeaveRequests(prev => prev.filter(l => l.id !== leaveId));
+    
+    // Add to rejected (could add to another list if needed)
+    toast.success(`Leave request for ${leave.employee.name} has been rejected`);
+  };
+  
+  const finalizeLeaveApproval = (leaveId: string, comments: string) => {
+    // Find the leave request
+    const leaveIndex = leaveRequests.findIndex(l => l.id === leaveId);
+    if (leaveIndex === -1) return;
+    
+    const approvedLeave = {
+      ...leaveRequests[leaveIndex],
+      status: "Approved",
+      approvedBy: "Current User", // In a real app, this would be the logged-in user
+      approvalDate: new Date().toISOString().split('T')[0],
+      approvalComments: comments
+    };
+    
+    // Remove from pending
+    setLeaveRequests(prev => prev.filter(l => l.id !== leaveId));
+    
+    // Add to approved
+    setApprovedRequests(prev => [approvedLeave, ...prev]);
+    
+    toast.success(`Leave request for ${approvedLeave.employee.name} has been approved`);
+  };
+  
+  const submitNewLeaveRequest = (leaveData: any) => {
+    const newLeave = {
+      id: `LEA-${Math.floor(Math.random() * 1000)}`,
+      employee: {
+        name: "Current User", // In a real app, this would be the logged-in user
+        avatar: "https://randomuser.me/api/portraits/men/1.jpg",
+        position: "Software Engineer",
+        email: "user@example.com"
+      },
+      type: leaveData.leaveType,
+      startDate: leaveData.startDate,
+      endDate: leaveData.endDate,
+      days: leaveData.days,
+      status: "Pending",
+      requestDate: new Date().toISOString().split('T')[0],
+      reason: leaveData.reason,
+      manager: "David Wong" // In a real app, this would be the user's manager
+    };
+    
+    setLeaveRequests(prev => [newLeave, ...prev]);
+    toast.success("Leave request submitted successfully");
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight">Leave Management</h1>
-          <Button>
+          <Button onClick={() => setShowLeaveRequestDialog(true)}>
             <CalendarPlus size={16} className="mr-2" />
             Apply Leave
           </Button>
@@ -144,7 +237,7 @@ const Leave = () => {
               <Clock size={18} className="text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">24</div>
+              <div className="text-2xl font-bold">{leaveRequests.length}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 <span className="text-orange-500 font-medium">+5</span> since yesterday
               </p>
@@ -156,7 +249,7 @@ const Leave = () => {
               <CheckCircle size={18} className="text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">35</div>
+              <div className="text-2xl font-bold">{approvedRequests.length}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 <span className="text-green-500 font-medium">+8</span> from last month
               </p>
@@ -181,11 +274,12 @@ const Leave = () => {
             <CardTitle>Leave Management</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="pending">
+            <Tabs defaultValue="pending" value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-6">
                 <TabsTrigger value="pending">Pending</TabsTrigger>
                 <TabsTrigger value="approved">Approved</TabsTrigger>
                 <TabsTrigger value="balances">Leave Balances</TabsTrigger>
+                <TabsTrigger value="calendar">Calendar</TabsTrigger>
               </TabsList>
               
               <TabsContent value="pending">
@@ -195,58 +289,78 @@ const Leave = () => {
                     Filter
                   </Button>
                 </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Leave Type</TableHead>
-                      <TableHead>Start Date</TableHead>
-                      <TableHead>End Date</TableHead>
-                      <TableHead>Days</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pendingLeaves.map((leave) => (
-                      <TableRow key={leave.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={leave.employee.avatar} />
-                              <AvatarFallback>
-                                {leave.employee.name.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{leave.employee.name}</p>
-                              <p className="text-sm text-muted-foreground">{leave.employee.position}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{leave.type}</TableCell>
-                        <TableCell>{leave.startDate}</TableCell>
-                        <TableCell>{leave.endDate}</TableCell>
-                        <TableCell>{leave.days}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{leave.status}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" className="border-green-500 text-green-500 hover:bg-green-50">
-                              <CheckCircle size={14} className="mr-2" />
-                              Approve
-                            </Button>
-                            <Button variant="outline" size="sm" className="border-red-500 text-red-500 hover:bg-red-50">
-                              <XCircle size={14} className="mr-2" />
-                              Reject
-                            </Button>
-                          </div>
-                        </TableCell>
+                {leaveRequests.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Employee</TableHead>
+                        <TableHead>Leave Type</TableHead>
+                        <TableHead>Start Date</TableHead>
+                        <TableHead>End Date</TableHead>
+                        <TableHead>Days</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {leaveRequests.map((leave) => (
+                        <TableRow key={leave.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={leave.employee.avatar} />
+                                <AvatarFallback>
+                                  {leave.employee.name.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{leave.employee.name}</p>
+                                <p className="text-sm text-muted-foreground">{leave.employee.position}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{leave.type}</TableCell>
+                          <TableCell>{leave.startDate}</TableCell>
+                          <TableCell>{leave.endDate}</TableCell>
+                          <TableCell>{leave.days}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{leave.status}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="border-green-500 text-green-500 hover:bg-green-50"
+                                onClick={() => handleApproveLeave(leave.id)}
+                              >
+                                <CheckCircle size={14} className="mr-2" />
+                                Approve
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="border-red-500 text-red-500 hover:bg-red-50"
+                                onClick={() => handleRejectLeave(leave.id)}
+                              >
+                                <XCircle size={14} className="mr-2" />
+                                Reject
+                              </Button>
+                              <Button variant="ghost" size="sm">
+                                <FileText size={14} className="mr-2" />
+                                Details
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-10">
+                    <p className="text-muted-foreground">No pending leave requests</p>
+                  </div>
+                )}
               </TabsContent>
               
               <TabsContent value="approved">
@@ -259,10 +373,11 @@ const Leave = () => {
                       <TableHead>End Date</TableHead>
                       <TableHead>Days</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Approved By</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {approvedLeaves.map((leave) => (
+                    {approvedRequests.map((leave) => (
                       <TableRow key={leave.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -285,6 +400,7 @@ const Leave = () => {
                         <TableCell>
                           <Badge variant="default">{leave.status}</Badge>
                         </TableCell>
+                        <TableCell>{leave.approvedBy}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -352,10 +468,36 @@ const Leave = () => {
                   </TableBody>
                 </Table>
               </TabsContent>
+              
+              <TabsContent value="calendar">
+                <div className="flex justify-center py-10">
+                  <div className="text-center">
+                    <CalendarIcon size={48} className="mx-auto text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-medium">Leave Calendar</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Calendar view of all approved and pending leave
+                    </p>
+                    <Button className="mt-4">View Full Calendar</Button>
+                  </div>
+                </div>
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
       </div>
+      
+      <LeaveRequestDialog
+        open={showLeaveRequestDialog}
+        onOpenChange={setShowLeaveRequestDialog}
+        onSubmit={submitNewLeaveRequest}
+      />
+      
+      <LeaveApprovalDialog
+        open={showLeaveApprovalDialog}
+        onOpenChange={setShowLeaveApprovalDialog}
+        leaveRequest={selectedLeave}
+        onApprove={finalizeLeaveApproval}
+      />
     </MainLayout>
   );
 };

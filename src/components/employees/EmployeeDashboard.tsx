@@ -5,20 +5,30 @@ import { AddEmployeeDialog } from '@/components/employees/AddEmployeeDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, FileDown, FileUp, Filter, UserPlus } from 'lucide-react';
+import { Search, FileDown, FileUp, Filter, UserPlus, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import { AssignManagerDialog } from '@/components/employees/AssignManagerDialog';
+import { useState } from 'react';
 
 const dummyEmployees = [
-  { id: 1, name: "Sarah Chen", email: "schen@example.com", department: "Engineering", role: "Frontend Developer", status: "Active" },
-  { id: 2, name: "Michael Johnson", email: "mjohnson@example.com", department: "Marketing", role: "Marketing Manager", status: "Active" },
-  { id: 3, name: "Emily Rodriguez", email: "erodriguez@example.com", department: "Sales", role: "Sales Executive", status: "Active" },
-  { id: 4, name: "David Kim", email: "dkim@example.com", department: "Engineering", role: "Backend Developer", status: "On Leave" },
-  { id: 5, name: "Jessica Taylor", email: "jtaylor@example.com", department: "HR", role: "HR Specialist", status: "Active" },
-  { id: 6, name: "Robert Wilson", email: "rwilson@example.com", department: "Finance", role: "Financial Analyst", status: "Inactive" },
+  { id: 1, name: "Sarah Chen", email: "schen@example.com", department: "Engineering", role: "Frontend Developer", status: "Active", manager: "David Wong" },
+  { id: 2, name: "Michael Johnson", email: "mjohnson@example.com", department: "Marketing", role: "Marketing Manager", status: "Active", manager: "Jessica Taylor" },
+  { id: 3, name: "Emily Rodriguez", email: "erodriguez@example.com", department: "Sales", role: "Sales Executive", status: "Active", manager: "Robert Wilson" },
+  { id: 4, name: "David Kim", email: "dkim@example.com", department: "Engineering", role: "Backend Developer", status: "On Leave", manager: "Sarah Chen" },
+  { id: 5, name: "Jessica Taylor", email: "jtaylor@example.com", department: "HR", role: "HR Specialist", status: "Active", manager: null },
+  { id: 6, name: "Robert Wilson", email: "rwilson@example.com", department: "Finance", role: "Financial Analyst", status: "Inactive", manager: null },
 ];
 
 export function EmployeeDashboard() {
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
+  const [showAssignManagerDialog, setShowAssignManagerDialog] = useState(false);
+
+  const handleAssignManager = (employeeId: number) => {
+    setSelectedEmployeeId(employeeId);
+    setShowAssignManagerDialog(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
@@ -74,7 +84,9 @@ export function EmployeeDashboard() {
                     <TableHead>Email</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Manager</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -89,10 +101,25 @@ export function EmployeeDashboard() {
                       <TableCell>{employee.department}</TableCell>
                       <TableCell>{employee.role}</TableCell>
                       <TableCell>
+                        {employee.manager || (
+                          <span className="text-muted-foreground italic">Not assigned</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <Badge variant={employee.status === 'Active' ? 'default' : 
                             employee.status === 'On Leave' ? 'warning' : 'secondary'}>
                           {employee.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleAssignManager(employee.id)}
+                        >
+                          <UserRound size={16} className="mr-2" />
+                          Assign Manager
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -156,6 +183,12 @@ export function EmployeeDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      <AssignManagerDialog 
+        open={showAssignManagerDialog} 
+        onOpenChange={setShowAssignManagerDialog} 
+        employeeId={selectedEmployeeId}
+      />
     </div>
   );
 }

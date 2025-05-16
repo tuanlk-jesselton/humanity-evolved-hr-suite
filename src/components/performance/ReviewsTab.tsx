@@ -1,11 +1,13 @@
 
 import { useState } from 'react';
-import { Search, FileText, Clock, CheckCircle, Plus } from 'lucide-react';
+import { Search, FileText, Clock, CheckCircle, Plus, CheckCheck, X } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
+import { ReviewApprovalDialog } from '@/components/performance/ReviewApprovalDialog';
 
 type Review = {
   id: string;
@@ -14,7 +16,7 @@ type Review = {
   position: string;
   department: string;
   type: string;
-  status: 'draft' | 'pending' | 'completed';
+  status: 'draft' | 'pending' | 'completed' | 'rejected';
   dueDate: string;
   lastUpdated: string;
   rating?: number;
@@ -72,6 +74,8 @@ export function ReviewsTab() {
   const [reviews, setReviews] = useState<Review[]>(mockReviews);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeStatus, setActiveStatus] = useState('all');
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   
   const filteredReviews = reviews.filter(review => {
     const matchesSearch = review.employee.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -87,6 +91,7 @@ export function ReviewsTab() {
       case 'draft': return <FileText size={16} className="mr-1" />;
       case 'pending': return <Clock size={16} className="mr-1" />;
       case 'completed': return <CheckCircle size={16} className="mr-1" />;
+      case 'rejected': return <X size={16} className="mr-1" />;
       default: return null;
     }
   };
@@ -96,8 +101,45 @@ export function ReviewsTab() {
       case 'draft': return 'secondary';
       case 'pending': return 'warning';
       case 'completed': return 'default'; // primary
+      case 'rejected': return 'destructive';
       default: return 'secondary';
     }
+  };
+  
+  const handleViewReview = (review: Review) => {
+    setSelectedReview(review);
+    setShowApprovalDialog(true);
+  };
+  
+  const handleApproveReview = (reviewId: string, feedback: string, rating?: number) => {
+    setReviews(reviews.map(review => 
+      review.id === reviewId 
+        ? { 
+            ...review, 
+            status: 'completed', 
+            lastUpdated: new Date().toISOString().split('T')[0],
+            rating: rating || review.rating 
+          } 
+        : review
+    ));
+    
+    toast.success("Review approved successfully");
+    setShowApprovalDialog(false);
+  };
+  
+  const handleRejectReview = (reviewId: string, feedback: string) => {
+    setReviews(reviews.map(review => 
+      review.id === reviewId 
+        ? { 
+            ...review, 
+            status: 'rejected', 
+            lastUpdated: new Date().toISOString().split('T')[0] 
+          } 
+        : review
+    ));
+    
+    toast.success("Review sent back for revisions");
+    setShowApprovalDialog(false);
   };
 
   return (
@@ -126,6 +168,7 @@ export function ReviewsTab() {
             <TabsTrigger value="draft">Drafts</TabsTrigger>
             <TabsTrigger value="pending">Pending</TabsTrigger>
             <TabsTrigger value="completed">Completed</TabsTrigger>
+            <TabsTrigger value="rejected">Rejected</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -140,7 +183,8 @@ export function ReviewsTab() {
                   <Badge variant={getStatusBadgeVariant(review.status)} className="flex items-center">
                     {getStatusIcon(review.status)}
                     {review.status === 'draft' ? 'Draft' : 
-                     review.status === 'pending' ? 'Pending' : 'Completed'}
+                     review.status === 'pending' ? 'Pending' : 
+                     review.status === 'completed' ? 'Completed' : 'Rejected'}
                   </Badge>
                 </div>
                 <CardDescription className="flex flex-col space-y-1">
@@ -169,9 +213,36 @@ export function ReviewsTab() {
                 <div className="text-xs text-muted-foreground">
                   Updated: {new Date(review.lastUpdated).toLocaleDateString()}
                 </div>
-                <Button variant="outline" size="sm">
-                  {review.status === 'completed' ? 'View' : 'Edit'} Review
-                </Button>
+                <div className="flex gap-2">
+                  {review.status === 'pending' && (
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="border-green-500 text-green-500 hover:bg-green-50"
+                        onClick={() => handleViewReview(review)}
+                      >
+                        <CheckCheck size={14} className="mr-1" />
+                        Approve
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="border-red-500 text-red-500 hover:bg-red-50"
+                      >
+                        <X size={14} className="mr-1" />
+                        Reject
+                      </Button>
+                    </>
+                  )}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleViewReview(review)}
+                  >
+                    {review.status === 'completed' ? 'View' : 'Edit'} Review
+                  </Button>
+                </div>
               </CardFooter>
             </Card>
           ))
@@ -181,6 +252,16 @@ export function ReviewsTab() {
           </div>
         )}
       </div>
+      
+      {selectedReview && (
+        <ReviewApprovalDialog
+          open={showApprovalDialog}
+          onOpenChange={setShowApprovalDialog}
+          review={selectedReview}
+          onApprove={handleApproveReview}
+          onReject={handleRejectReview}
+        />
+      )}
     </div>
   );
 }

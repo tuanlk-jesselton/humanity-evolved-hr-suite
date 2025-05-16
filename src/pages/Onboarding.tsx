@@ -4,7 +4,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, PlusCircle, UserPlus, UserMinus } from 'lucide-react';
+import { CheckCircle, Clock, PlusCircle, UserPlus, UserMinus, Calendar } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -16,10 +16,83 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { TaskList } from '@/components/onboarding/TaskList';
 import { NewEmployeeDialog } from '@/components/onboarding/NewEmployeeDialog';
+import { OnboardingTasksDialog } from '@/components/onboarding/OnboardingTasksDialog';
+import { OnboardingTemplateDialog } from '@/components/onboarding/OnboardingTemplateDialog';
+import { Progress } from '@/components/ui/progress';
+
+const onboardingEmployees = [
+  { 
+    id: 1, 
+    name: "Alex Johnson", 
+    position: "Frontend Developer", 
+    department: "Engineering",
+    startDate: "2025-05-12", 
+    progress: 8, 
+    totalTasks: 12, 
+    status: "In Progress" 
+  },
+  { 
+    id: 2, 
+    name: "Maria Garcia", 
+    position: "UX Designer", 
+    department: "Design",
+    startDate: "2025-05-15", 
+    progress: 5, 
+    totalTasks: 12, 
+    status: "In Progress" 
+  },
+  { 
+    id: 3, 
+    name: "Thomas Lee", 
+    position: "Product Manager", 
+    department: "Product", 
+    startDate: "2025-05-20", 
+    progress: 2, 
+    totalTasks: 12, 
+    status: "In Progress" 
+  }
+];
+
+const offboardingEmployees = [
+  { 
+    id: 1, 
+    name: "Robert Johnson", 
+    position: "Sales Representative", 
+    department: "Sales", 
+    exitDate: "2025-05-30", 
+    progress: 4, 
+    totalTasks: 10, 
+    status: "In Progress" 
+  },
+  { 
+    id: 2, 
+    name: "Sophia Smith", 
+    position: "Marketing Specialist", 
+    department: "Marketing", 
+    exitDate: "2025-06-15", 
+    progress: 2, 
+    totalTasks: 10, 
+    status: "In Progress" 
+  }
+];
 
 export default function Onboarding() {
   const [activeTab, setActiveTab] = useState('onboarding');
   const [showNewEmployeeDialog, setShowNewEmployeeDialog] = useState(false);
+  const [showTasksDialog, setShowTasksDialog] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [isOnboarding, setIsOnboarding] = useState(true);
+
+  const handleViewTasks = (employee: any, isOnboardingProcess: boolean) => {
+    setSelectedEmployee(employee);
+    setIsOnboarding(isOnboardingProcess);
+    setShowTasksDialog(true);
+  };
+
+  const handleCreateTemplate = () => {
+    setShowTemplateDialog(true);
+  };
 
   return (
     <MainLayout>
@@ -31,10 +104,16 @@ export default function Onboarding() {
               Manage employee onboarding and offboarding processes
             </p>
           </div>
-          <Button onClick={() => setShowNewEmployeeDialog(true)}>
-            <UserPlus size={16} className="mr-2" />
-            Add New Employee
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleCreateTemplate}>
+              <PlusCircle size={16} className="mr-2" />
+              New Template
+            </Button>
+            <Button onClick={() => setShowNewEmployeeDialog(true)}>
+              <UserPlus size={16} className="mr-2" />
+              Add New Employee
+            </Button>
+          </div>
         </div>
         
         <Tabs defaultValue="onboarding" value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -48,6 +127,7 @@ export default function Onboarding() {
               Offboarding
             </TabsTrigger>
           </TabsList>
+          
           <TabsContent value="onboarding" className="pt-4">
             <div className="grid gap-6 md:grid-cols-3 mb-6">
               <Card>
@@ -55,7 +135,7 @@ export default function Onboarding() {
                   <CardTitle className="text-sm font-medium">In Progress</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">3</div>
+                  <div className="text-2xl font-bold">{onboardingEmployees.length}</div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Employees currently onboarding
                   </p>
@@ -95,6 +175,7 @@ export default function Onboarding() {
                     <TableRow>
                       <TableHead>Employee</TableHead>
                       <TableHead>Position</TableHead>
+                      <TableHead>Department</TableHead>
                       <TableHead>Start Date</TableHead>
                       <TableHead>Progress</TableHead>
                       <TableHead>Status</TableHead>
@@ -102,47 +183,46 @@ export default function Onboarding() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium">Alex Johnson</TableCell>
-                      <TableCell>Frontend Developer</TableCell>
-                      <TableCell>2025-05-12</TableCell>
-                      <TableCell>8/12 tasks</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">In Progress</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">View Tasks</Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Maria Garcia</TableCell>
-                      <TableCell>UX Designer</TableCell>
-                      <TableCell>2025-05-15</TableCell>
-                      <TableCell>5/12 tasks</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">In Progress</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">View Tasks</Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Thomas Lee</TableCell>
-                      <TableCell>Product Manager</TableCell>
-                      <TableCell>2025-05-20</TableCell>
-                      <TableCell>2/12 tasks</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">In Progress</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">View Tasks</Button>
-                      </TableCell>
-                    </TableRow>
+                    {onboardingEmployees.map((employee) => (
+                      <TableRow key={employee.id}>
+                        <TableCell className="font-medium">{employee.name}</TableCell>
+                        <TableCell>{employee.position}</TableCell>
+                        <TableCell>{employee.department}</TableCell>
+                        <TableCell>{employee.startDate}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span>{employee.progress}/{employee.totalTasks} tasks</span>
+                              <span className="text-muted-foreground">
+                                {Math.round((employee.progress / employee.totalTasks) * 100)}%
+                              </span>
+                            </div>
+                            <Progress 
+                              value={(employee.progress / employee.totalTasks) * 100} 
+                              className="h-2" 
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{employee.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleViewTasks(employee, true)}
+                          >
+                            View Tasks
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </CardContent>
             </Card>
           </TabsContent>
+          
           <TabsContent value="offboarding" className="pt-4">
             <div className="grid gap-6 md:grid-cols-3 mb-6">
               <Card>
@@ -150,7 +230,7 @@ export default function Onboarding() {
                   <CardTitle className="text-sm font-medium">In Progress</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">2</div>
+                  <div className="text-2xl font-bold">{offboardingEmployees.length}</div>
                   <p className="text-xs text-muted-foreground mt-1">
                     Employees currently offboarding
                   </p>
@@ -190,6 +270,7 @@ export default function Onboarding() {
                     <TableRow>
                       <TableHead>Employee</TableHead>
                       <TableHead>Position</TableHead>
+                      <TableHead>Department</TableHead>
                       <TableHead>Exit Date</TableHead>
                       <TableHead>Progress</TableHead>
                       <TableHead>Status</TableHead>
@@ -197,30 +278,40 @@ export default function Onboarding() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium">Robert Johnson</TableCell>
-                      <TableCell>Sales Representative</TableCell>
-                      <TableCell>2025-05-30</TableCell>
-                      <TableCell>4/10 tasks</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">In Progress</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">View Tasks</Button>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Sophia Smith</TableCell>
-                      <TableCell>Marketing Specialist</TableCell>
-                      <TableCell>2025-06-15</TableCell>
-                      <TableCell>2/10 tasks</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">In Progress</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">View Tasks</Button>
-                      </TableCell>
-                    </TableRow>
+                    {offboardingEmployees.map((employee) => (
+                      <TableRow key={employee.id}>
+                        <TableCell className="font-medium">{employee.name}</TableCell>
+                        <TableCell>{employee.position}</TableCell>
+                        <TableCell>{employee.department}</TableCell>
+                        <TableCell>{employee.exitDate}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span>{employee.progress}/{employee.totalTasks} tasks</span>
+                              <span className="text-muted-foreground">
+                                {Math.round((employee.progress / employee.totalTasks) * 100)}%
+                              </span>
+                            </div>
+                            <Progress 
+                              value={(employee.progress / employee.totalTasks) * 100} 
+                              className="h-2" 
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{employee.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleViewTasks(employee, false)}
+                          >
+                            View Tasks
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -228,9 +319,22 @@ export default function Onboarding() {
           </TabsContent>
         </Tabs>
       </div>
+      
       <NewEmployeeDialog 
         open={showNewEmployeeDialog} 
         onOpenChange={setShowNewEmployeeDialog} 
+      />
+      
+      <OnboardingTasksDialog 
+        open={showTasksDialog}
+        onOpenChange={setShowTasksDialog}
+        employee={selectedEmployee}
+        isOnboarding={isOnboarding}
+      />
+      
+      <OnboardingTemplateDialog
+        open={showTemplateDialog}
+        onOpenChange={setShowTemplateDialog}
       />
     </MainLayout>
   );
