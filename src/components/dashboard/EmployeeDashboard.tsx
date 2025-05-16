@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { LeaveRequestDialog } from '@/components/leave/LeaveRequestDialog';
 import { useState } from 'react';
 import { Progress } from '@/components/ui/progress';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 // Dummy data for my upcoming time off
 const upcomingTimeOff = [
