@@ -13,6 +13,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Logo } from '@/components/common/Logo';
+import { useAuth } from '@/contexts/AuthContext';
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -24,6 +25,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -36,11 +38,9 @@ export default function LoginPage() {
 
   const handleLogin = (data: LoginFormValues) => {
     // In a real application, this would be an API call to authenticate the user
-    toast.success(`Logged in as ${data.role}`);
+    login(data.email, data.password, data.role);
     
-    localStorage.setItem('userRole', data.role);
-    localStorage.setItem('userEmail', data.email);
-    localStorage.setItem('isAuthenticated', 'true');
+    toast.success(`Logged in as ${data.role}`);
     
     // Redirect based on user role
     switch (data.role) {
