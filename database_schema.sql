@@ -1,9 +1,367 @@
 
--- HumanityHR - PostgreSQL Database Schema
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
+-- Roles
+CREATE TABLE roles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(64) UNIQUE NOT NULL,
+    description TEXT
+);
+
+-- Permissions
+CREATE TABLE permissions (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(64) UNIQUE NOT NULL,
+    description TEXT
+);
+
+-- User Roles (1 user có thể có nhiều role)
+CREATE TABLE user_roles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+    UNIQUE(user_id, role_id)
+);
+
+-- Role Permissions (1 role có thể có nhiều quyền)
+CREATE TABLE role_permissions (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+    UNIQUE(role_id, permission_id)
+);
+
+-- User Permissions (quyền đặc biệt cho từng user, override role)
+CREATE TABLE user_permissions (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    permission_id INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+    UNIQUE(user_id, permission_id)
+);
+
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
 
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
 
 -- Companies (Tenants)
 CREATE TABLE companies (
@@ -17,6 +375,128 @@ CREATE TABLE companies (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Departments
 CREATE TABLE departments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -27,8 +507,252 @@ CREATE TABLE departments (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Roles
 CREATE TYPE user_role AS ENUM ('Super Admin', 'Company Admin', 'Manager', 'Employee');
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
 
 -- Users
 CREATE TABLE users (
@@ -52,6 +776,128 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- User Documents
 CREATE TABLE user_documents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -62,6 +908,128 @@ CREATE TABLE user_documents (
     category VARCHAR(100),
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     expires_at TIMESTAMP WITH TIME ZONE
+);
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
 );
 
 -- Leave Types
@@ -76,6 +1044,128 @@ CREATE TABLE leave_types (
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
 );
 
 -- Leave Balances
@@ -95,8 +1185,252 @@ CREATE TABLE leave_balances (
     UNIQUE (user_id, leave_type_id, year)
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Leave Status
 CREATE TYPE leave_status AS ENUM ('Pending', 'Approved', 'Rejected', 'Cancelled');
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
 
 -- Leave Requests
 CREATE TABLE leave_requests (
@@ -115,6 +1449,128 @@ CREATE TABLE leave_requests (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Expense Categories
 CREATE TABLE expense_categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -127,8 +1583,252 @@ CREATE TABLE expense_categories (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Expense Status
 CREATE TYPE expense_status AS ENUM ('Pending', 'Approved', 'Rejected', 'Paid');
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
 
 -- Expense Claims
 CREATE TABLE expense_claims (
@@ -149,17 +1849,383 @@ CREATE TABLE expense_claims (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Payroll Components
 CREATE TABLE payroll_components (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
-    type VARCHAR(50) NOT NULL, -- 'Basic', 'Allowance', 'Deduction', 'Tax'
+    type VARCHAR(50) NOT NULL, --
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
+-- 'Basic', 'Allowance', 'Deduction', 'Tax'
     description TEXT,
     tax_applicable BOOLEAN DEFAULT false,
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
 );
 
 -- Employee Salary Details
@@ -172,6 +2238,128 @@ CREATE TABLE employee_salaries (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Salary Components
 CREATE TABLE salary_components (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -182,6 +2370,128 @@ CREATE TABLE salary_components (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Payroll Runs
 CREATE TABLE payroll_runs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -190,11 +2500,255 @@ CREATE TABLE payroll_runs (
     period_start DATE NOT NULL,
     period_end DATE NOT NULL,
     payment_date DATE NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'Draft', -- 'Draft', 'Processing', 'Completed', 'Cancelled'
+    status VARCHAR(50) NOT NULL DEFAULT 'Draft', --
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
+-- 'Draft', 'Processing', 'Completed', 'Cancelled'
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     locked BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
 );
 
 -- Payslips
@@ -211,18 +2765,506 @@ CREATE TABLE payslips (
     UNIQUE (payroll_run_id, user_id)
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Payslip Items
 CREATE TABLE payslip_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     payslip_id UUID NOT NULL REFERENCES payslips(id) ON DELETE CASCADE,
     component_name VARCHAR(100) NOT NULL,
-    type VARCHAR(50) NOT NULL, -- 'Earning', 'Deduction', 'Tax'
+    type VARCHAR(50) NOT NULL, --
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
+-- 'Earning', 'Deduction', 'Tax'
     amount DECIMAL(12,2) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Attendance Status
 CREATE TYPE attendance_status AS ENUM ('Present', 'Absent', 'Half Day', 'Late', 'Leave', 'Holiday', 'Weekend');
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
 
 -- Attendance Records
 CREATE TABLE attendance_records (
@@ -241,6 +3283,128 @@ CREATE TABLE attendance_records (
     UNIQUE (user_id, date)
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Onboarding Templates
 CREATE TABLE onboarding_templates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -250,6 +3414,128 @@ CREATE TABLE onboarding_templates (
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
 );
 
 -- Onboarding Tasks
@@ -266,18 +3552,384 @@ CREATE TABLE onboarding_tasks (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Onboarding User Tasks
 CREATE TABLE user_onboarding_tasks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     task_id UUID NOT NULL REFERENCES onboarding_tasks(id) ON DELETE CASCADE,
     assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'Pending', -- 'Pending', 'In Progress', 'Completed', 'Overdue'
+    status VARCHAR(50) NOT NULL DEFAULT 'Pending', --
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
+-- 'Pending', 'In Progress', 'Completed', 'Overdue'
     due_date DATE,
     completion_date DATE,
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
 );
 
 -- Notifications
@@ -286,11 +3938,377 @@ CREATE TABLE notifications (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
-    type VARCHAR(50) NOT NULL, -- 'Leave', 'Expense', 'Payroll', 'System', etc.
-    related_entity_type VARCHAR(50), -- 'leave_requests', 'expense_claims', etc.
+    type VARCHAR(50) NOT NULL, --
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
+-- 'Leave', 'Expense', 'Payroll', 'System', etc.
+    related_entity_type VARCHAR(50), --
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
+-- 'leave_requests', 'expense_claims', etc.
     related_entity_id UUID,
     is_read BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
 );
 
 -- Audit Log
@@ -298,13 +4316,379 @@ CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
-    action VARCHAR(50) NOT NULL, -- 'create', 'update', 'delete', 'login', 'logout', etc.
-    entity_type VARCHAR(50), -- 'users', 'leave_requests', etc.
+    action VARCHAR(50) NOT NULL, --
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
+-- 'create', 'update', 'delete', 'login', 'logout', etc.
+    entity_type VARCHAR(50), --
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
+-- 'users', 'leave_requests', etc.
     entity_id UUID,
     details JSONB,
     ip_address VARCHAR(45),
     user_agent TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
 );
 
 -- System Settings
@@ -314,10 +4698,254 @@ CREATE TABLE system_settings (
     category VARCHAR(100) NOT NULL,
     key VARCHAR(100) NOT NULL,
     value TEXT,
-    data_type VARCHAR(50) DEFAULT 'string', -- 'string', 'number', 'boolean', 'json'
+    data_type VARCHAR(50) DEFAULT 'string', --
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
+-- 'string', 'number', 'boolean', 'json'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE (company_id, category, key)
+);
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
 );
 
 -- Row-Level Security Policies
@@ -327,12 +4955,256 @@ ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leave_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expense_claims ENABLE ROW LEVEL SECURITY;
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Super Admin can access all companies
 CREATE POLICY super_admin_companies_policy 
 ON companies
 FOR ALL 
 TO PUBLIC
 USING (EXISTS (SELECT 1 FROM users WHERE users.id = current_user_id() AND users.role = 'Super Admin'));
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
 
 -- Company Admin, Manager and Employee can only access their own company
 CREATE POLICY company_users_policy
@@ -341,7 +5213,251 @@ FOR ALL
 TO PUBLIC
 USING (id = (SELECT company_id FROM users WHERE users.id = current_user_id()));
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- User policies
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Super Admin and Company Admin can access all users in their company/companies
 CREATE POLICY admin_users_policy
 ON users
@@ -351,6 +5467,128 @@ USING (
     (EXISTS (SELECT 1 FROM users u WHERE u.id = current_user_id() AND u.role = 'Super Admin'))
     OR
     (EXISTS (SELECT 1 FROM users u WHERE u.id = current_user_id() AND u.role = 'Company Admin' AND u.company_id = users.company_id))
+);
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
 );
 
 -- Managers can view users they manage
@@ -364,12 +5602,256 @@ USING (
     id = current_user_id()
 );
 
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
+
 -- Users can view their own data
 CREATE POLICY self_users_policy
 ON users
 FOR SELECT
 TO PUBLIC
 USING (id = current_user_id());
+
+--
+-- HR Payroll Database Schema (chuẩn Gusto, đầy đủ các module)
+--
+
+-- Companies
+CREATE TABLE companies (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    owner_id INTEGER,
+    employees_count INTEGER DEFAULT 0,
+    compliance_status VARCHAR(32) NOT NULL CHECK (compliance_status IN ('Good', 'Warning', 'Missing')),
+    payroll_health VARCHAR(32) NOT NULL CHECK (payroll_health IN ('Healthy', 'Issue', 'Pending')),
+    status VARCHAR(16) NOT NULL CHECK (status IN ('Active', 'Inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Users
+CREATE TABLE users (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('Super Admin', 'Company Admin', 'Manager', 'Employee')),
+    company_id INTEGER REFERENCES companies(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company Settings
+CREATE TABLE company_settings (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+    setting_key VARCHAR(64) NOT NULL,
+    setting_value TEXT,
+    UNIQUE(company_id, setting_key)
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    user_id INTEGER REFERENCES users(id),
+    action VARCHAR(128) NOT NULL,
+    target_type VARCHAR(64),
+    target_id INTEGER,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payrolls
+CREATE TABLE payrolls (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Pending', 'Completed', 'Failed')),
+    total_amount NUMERIC(18,2),
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payroll Items
+CREATE TABLE payroll_items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    payroll_id INTEGER REFERENCES payrolls(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    amount NUMERIC(18,2) NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Pending', 'Paid', 'Failed'))
+);
+
+-- Compliance Checks
+CREATE TABLE compliance_checks (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    check_type VARCHAR(64) NOT NULL,
+    result VARCHAR(32) NOT NULL CHECK (result IN ('Good', 'Warning', 'Missing')),
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
+);
+
+-- Performance Review Cycles
+CREATE TABLE performance_review_cycles (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id INTEGER REFERENCES companies(id),
+    name VARCHAR(128) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Open', 'Closed', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Reviews
+CREATE TABLE performance_reviews (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    employee_id INTEGER REFERENCES users(id),
+    reviewer_id INTEGER REFERENCES users(id),
+    review_type VARCHAR(32) NOT NULL CHECK (review_type IN ('Self', 'Manager', 'Peer')),
+    score NUMERIC(4,2),
+    comments TEXT,
+    status VARCHAR(32) NOT NULL CHECK (status IN ('Draft', 'Submitted', 'Finalized')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Performance Review Criteria
+CREATE TABLE performance_review_criteria (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    cycle_id INTEGER REFERENCES performance_review_cycles(id) ON DELETE CASCADE,
+    name VARCHAR(128) NOT NULL,
+    description TEXT
+);
+
+-- Performance Review Scores
+CREATE TABLE performance_review_scores (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    review_id INTEGER REFERENCES performance_reviews(id) ON DELETE CASCADE,
+    criteria_id INTEGER REFERENCES performance_review_criteria(id),
+    score NUMERIC(4,2),
+    comments TEXT
+);
 
 -- Functions for authentication
 CREATE OR REPLACE FUNCTION current_user_id() 

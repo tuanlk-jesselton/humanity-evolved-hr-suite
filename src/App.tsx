@@ -25,6 +25,7 @@ import Benefits from "./pages/Benefits";
 import Documents from "./pages/Documents";
 import Reports from "./pages/Reports";
 import Company from "./pages/Company";
+import Companies from "./pages/Companies";
 import Compliance from "./pages/Compliance";
 import SuperAdmin from "./pages/SuperAdmin";
 import CompanyAdmin from "./pages/CompanyAdmin";
@@ -99,6 +100,7 @@ const App = () => (
               <Route path="/benefits" element={<Benefits />} />
               <Route path="/documents" element={<Documents />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/companies" element={<Companies />} />
               <Route path="/company" element={<Company />} />
               <Route path="/compliance" element={<Compliance />} />
             </Route>

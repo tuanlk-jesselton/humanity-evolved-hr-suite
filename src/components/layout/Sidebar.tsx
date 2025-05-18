@@ -20,7 +20,8 @@ import {
   Building,
   CreditCard,
   Shield,
-  TrendingUp
+  TrendingUp,
+  User
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Logo } from '@/components/common/Logo';
@@ -106,30 +107,47 @@ export function Sidebar() {
     }
   };
   
-  // Main navigation items
-  const mainNavItems = [
-    { to: getDashboardRoute(), icon: LayoutDashboard, label: "Dashboard" },
-    { to: "/employees", icon: Users, label: "People" },
-    { to: "/payroll", icon: Banknote, label: "Payroll" },
-    { to: "/benefits", icon: PiggyBank, label: "Benefits" },
-    { to: "/time-tracking", icon: Clock, label: "Time Tracking" },
-    { to: "/leave", icon: Calendar, label: "Time Off" }
-  ];
+  // Định nghĩa menu sidebar cho từng vai trò theo chuẩn Gusto
+  const SIDEBAR_MENUS: Record<string, { to: string; icon: React.ElementType; label: string }[]> = {
+    'Super Admin': [
+      { to: '/super-admin', icon: Shield, label: 'System Dashboard' },
+      { to: '/companies', icon: Building, label: 'Companies' },
+      { to: '/audit-logs', icon: FileText, label: 'Audit Logs' },
+      { to: '/system-settings', icon: Settings, label: 'System Settings' }
+    ],
+    'Company Admin': [
+      { to: getDashboardRoute(), icon: LayoutDashboard, label: 'Company Dashboard' },
+      { to: '/employees', icon: Users, label: 'Employees' },
+      { to: '/payroll', icon: Banknote, label: 'Payroll' },
+      { to: '/benefits', icon: PiggyBank, label: 'Benefits' },
+      { to: '/time-tracking', icon: Clock, label: 'Time Tracking' },
+      { to: '/leave-requests', icon: Calendar, label: 'Leave Requests' },
+      { to: '/claims', icon: FileText, label: 'Expenses' },
+      { to: '/documents', icon: FileText, label: 'Documents' },
+      { to: '/compliance', icon: Shield, label: 'Compliance' },
+      { to: '/reports', icon: TrendingUp, label: 'Reports' },
+      { to: '/company-settings', icon: Settings, label: 'Company Settings' }
+    ],
+    'Manager': [
+      { to: getDashboardRoute(), icon: LayoutDashboard, label: 'Team Dashboard' },
+      { to: '/my-team', icon: Users, label: 'My Team' },
+      { to: '/team-timesheet', icon: Clock, label: 'Team Timesheet' },
+      { to: '/leave-approvals', icon: Calendar, label: 'Leave Approvals' },
+      { to: '/performance', icon: Award, label: 'Performance' },
+      { to: '/team-reports', icon: TrendingUp, label: 'Team Reports' },
+      { to: '/team-documents', icon: FileText, label: 'Team Documents' }
+    ],
+    'Employee': [
+      { to: getDashboardRoute(), icon: LayoutDashboard, label: 'My Dashboard' },
+      { to: '/attendance', icon: Clock, label: 'Attendance' },
+      { to: '/leave', icon: Calendar, label: 'Leave' },
+      { to: '/payroll', icon: Banknote, label: 'Payroll' },
+      { to: '/benefits', icon: PiggyBank, label: 'Benefits' },
+      { to: '/my-documents', icon: FileText, label: 'My Documents' },
+      { to: '/my-profile', icon: User, label: 'My Profile' }
+    ]
+  };
 
-  // Secondary navigation items
-  const secondaryNavItems = [
-    { to: "/claims", icon: FileText, label: "Expenses" },
-    { to: "/documents", icon: FileText, label: "Documents" },
-    { to: "/reports", icon: TrendingUp, label: "Reports" },
-    { to: "/compliance", icon: Shield, label: "Compliance" },
-    { to: "/company", icon: Building, label: "Company" },
-    { to: "/settings", icon: Settings, label: "Settings" }
-  ];
-  
-  // Super Admin specific items
-  const superAdminItems = [
-    { to: "/super-admin", icon: Shield, label: "Platform Admin" },
-  ];
 
   return (
     <aside 
@@ -155,11 +173,9 @@ export function Sidebar() {
       </div>
       
       <div className="flex-1 overflow-y-auto py-4">
-        {userRole === 'Super Admin' && (
-          <NavSection title="Super Admin" items={superAdminItems} isCollapsed={collapsed} />
+        {userRole && SIDEBAR_MENUS[userRole] && (
+          <NavSection title={userRole} items={SIDEBAR_MENUS[userRole]} isCollapsed={collapsed} />
         )}
-        <NavSection title="Main" items={mainNavItems} isCollapsed={collapsed} />
-        <NavSection title="Administration" items={secondaryNavItems} isCollapsed={collapsed} />
       </div>
       
       <div className="border-t border-sidebar-border p-4">
