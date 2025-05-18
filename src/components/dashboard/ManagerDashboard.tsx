@@ -2,287 +2,271 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Users, 
-  FileText, 
-  Calendar, 
+import {
+  Users,
+  Calendar,
   Clock,
-  ThumbsUp,
-  Award,
-  CheckCircle,
-  XCircle
+  FileText,
+  BarChart3,
+  Check,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  UserCheck,
+  CalendarClock,
+  ClipboardList,
+  Trophy
 } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { LeaveApprovalDialog } from '@/components/leave/LeaveApprovalDialog';
-import { useState } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
-// Dummy team data
-const teamMembers = [
-  { id: 1, name: "Sarah Chen", role: "Frontend Developer", avatar: "", status: "Working" },
-  { id: 2, name: "David Wong", role: "Backend Developer", avatar: "", status: "On Leave" },
-  { id: 3, name: "Michael Johnson", role: "UI/UX Designer", avatar: "", status: "Working" },
-  { id: 4, name: "Emily Rodriguez", role: "QA Engineer", avatar: "", status: "Working" },
+// Dummy data for team statistics
+const teamStats = [
+  { title: "Team Members", value: "12", icon: Users },
+  { title: "Leave Requests", value: "3", icon: Calendar },
+  { title: "Pending Approvals", value: "7", icon: Clock },
+  { title: "Team Performance", value: "92%", icon: BarChart3 }
 ];
 
-// Dummy pending approvals
+// Dummy data for team members
+const teamMembers = [
+  { id: 1, name: "Sarah Chen", role: "Frontend Developer", status: "Present", avatar: "SC" },
+  { id: 2, name: "Michael Johnson", role: "UI/UX Designer", status: "On Leave", avatar: "MJ" },
+  { id: 3, name: "Emily Rodriguez", role: "Backend Developer", status: "Present", avatar: "ER" },
+  { id: 4, name: "David Kim", role: "QA Engineer", status: "Late", avatar: "DK" },
+  { id: 5, name: "Jessica Taylor", role: "Product Manager", status: "Present", avatar: "JT" },
+];
+
+// Dummy data for pending approvals
 const pendingApprovals = [
-  { id: 1, type: "Leave", employee: { name: "David Wong", role: "Backend Developer", avatar: "" }, 
-    requestDate: "2023-07-12", startDate: "2023-08-01", endDate: "2023-08-05", days: 5, reason: "Family vacation", 
-    leaveType: "Annual Leave", status: "Pending", manager: "Jane Smith" },
-  { id: 2, type: "Expense", employee: { name: "Emily Rodriguez", role: "QA Engineer", avatar: "" },
-    amount: 175.50, date: "2023-07-10", category: "Office Supplies", description: "Ergonomic keyboard and mouse", status: "Pending" },
-  { id: 3, type: "Performance Review", employee: { name: "Sarah Chen", role: "Frontend Developer", avatar: "" },
-    period: "Q2 2023", dueDate: "2023-07-20", status: "Draft" },
+  { id: 1, type: "Leave", employee: "Michael Johnson", details: "Annual Leave: Jun 15-18", submitted: "2 days ago" },
+  { id: 2, type: "Expense", employee: "Emily Rodriguez", details: "Client meeting: $125.50", submitted: "1 day ago" },
+  { id: 3, type: "Timesheet", employee: "David Kim", details: "Week of May 15: 42 hours", submitted: "3 hours ago" },
+  { id: 4, type: "Overtime", employee: "Sarah Chen", details: "May 16: 3 extra hours", submitted: "5 hours ago" },
+];
+
+// Dummy data for upcoming team leaves
+const upcomingLeaves = [
+  { id: 1, employee: "Michael Johnson", type: "Annual Leave", period: "Jun 15-18, 2025", status: "Approved" },
+  { id: 2, employee: "Jessica Taylor", type: "Personal Leave", period: "Jun 22, 2025", status: "Pending" },
 ];
 
 export function ManagerDashboard() {
-  const [selectedLeave, setSelectedLeave] = useState<any>(null);
-  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const { userEmail } = useAuth();
   
-  const handleApproveLeave = (leaveId: string, comments: string) => {
-    console.log(`Approved leave ${leaveId} with comments: ${comments}`);
-    // In a real app, this would make an API call to update leave status
-  };
+  // Extract name from email
+  const managerName = userEmail ? userEmail.split('@')[0].split('.')[0] : 'Manager';
+  const displayName = managerName.charAt(0).toUpperCase() + managerName.slice(1);
   
-  const openLeaveDialog = (leave: any) => {
-    setSelectedLeave(leave);
-    setLeaveDialogOpen(true);
-  };
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Manager Dashboard</h1>
         <p className="text-muted-foreground">
-          Manage your team and review requests
+          Welcome back, {displayName}
         </p>
       </div>
       
-      {/* Team Overview */}
+      {/* Team Statistics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Team Size</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">5</div>
-            <p className="text-xs text-muted-foreground">Direct reports</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground">Awaiting your review</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">On Leave Today</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1</div>
-            <p className="text-xs text-muted-foreground">Team member on leave</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Team Performance</CardTitle>
-            <Award className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">92%</div>
-            <Progress value={92} className="h-2 mt-2" />
-          </CardContent>
-        </Card>
+        {teamStats.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <Card key={index}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
       
-      {/* Team Members */}
-      <Card>
-        <CardHeader>
-          <CardTitle>My Team</CardTitle>
-          <CardDescription>Members reporting to you</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {teamMembers.map(member => (
-              <div key={member.id} className="flex flex-col items-center text-center p-4 border rounded-lg">
-                <Avatar className="h-20 w-20 mb-4">
-                  <AvatarImage src={member.avatar} />
-                  <AvatarFallback>{member.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                </Avatar>
-                <h3 className="font-medium">{member.name}</h3>
-                <p className="text-sm text-muted-foreground">{member.role}</p>
-                <Badge 
-                  variant={member.status === "Working" ? "default" : "secondary"}
-                  className="mt-2"
-                >
-                  {member.status}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Quick Actions */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Button className="h-auto py-4 flex flex-col items-center justify-center gap-2" variant="outline">
+          <UserCheck className="h-6 w-6" />
+          <span>Approve Requests</span>
+        </Button>
+        
+        <Button className="h-auto py-4 flex flex-col items-center justify-center gap-2" variant="outline">
+          <CalendarClock className="h-6 w-6" />
+          <span>Manage Timesheets</span>
+        </Button>
+        
+        <Button className="h-auto py-4 flex flex-col items-center justify-center gap-2" variant="outline">
+          <Trophy className="h-6 w-6" />
+          <span>Set Team Goals</span>
+        </Button>
+      </div>
       
-      {/* Approvals Tabs */}
-      <Tabs defaultValue="pending" className="w-full">
+      {/* Main Content */}
+      <Tabs defaultValue="team" className="w-full">
         <TabsList>
-          <TabsTrigger value="pending">Pending Approvals</TabsTrigger>
-          <TabsTrigger value="timeoff">Time Off Calendar</TabsTrigger>
-          <TabsTrigger value="performance">Performance Reviews</TabsTrigger>
-          <TabsTrigger value="history">Approval History</TabsTrigger>
+          <TabsTrigger value="team">
+            <Users className="h-4 w-4 mr-2" />
+            My Team
+          </TabsTrigger>
+          <TabsTrigger value="approvals">
+            <ClipboardList className="h-4 w-4 mr-2" />
+            Pending Approvals
+          </TabsTrigger>
+          <TabsTrigger value="schedule">
+            <Calendar className="h-4 w-4 mr-2" />
+            Team Schedule
+          </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="pending" className="space-y-4 pt-4">
+        <TabsContent value="team" className="space-y-4 pt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Items Needing Your Approval</CardTitle>
-              <CardDescription>Review and take action on pending requests</CardDescription>
+              <CardTitle>Team Members</CardTitle>
+              <CardDescription>Manage your direct reports</CardDescription>
             </CardHeader>
             <CardContent>
-              {pendingApprovals.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <ThumbsUp className="h-10 w-10 text-muted-foreground/50 mb-4" />
-                  <p className="text-muted-foreground">No pending approvals at this time.</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Details</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {teamMembers.map((member) => (
+                    <TableRow key={member.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white text-xs">
+                            {member.avatar}
+                          </div>
+                          <div className="font-medium">{member.name}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{member.role}</TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          member.status === "Present" ? "default" :
+                          member.status === "On Leave" ? "outline" : "secondary"
+                        }>
+                          {member.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm">View Details</Button>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pendingApprovals.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.type}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback>
-                                {item.employee.name.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{item.employee.name}</p>
-                              <p className="text-xs text-muted-foreground">{item.employee.role}</p>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="approvals" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Approvals</CardTitle>
+              <CardDescription>Requests awaiting your response</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {pendingApprovals.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
+                    <div>
+                      <div className="font-medium">{item.employee}</div>
+                      <div className="text-sm text-muted-foreground">{item.details}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Submitted {item.submitted}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="w-8 h-8 p-0">
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="outline" className="w-8 h-8 p-0" >
+                        <AlertCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="schedule" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Team Schedule</CardTitle>
+              <CardDescription>Upcoming leaves and absences</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-medium mb-4">Upcoming Team Leaves</h3>
+                  {upcomingLeaves.length === 0 ? (
+                    <p className="text-muted-foreground">No upcoming leaves</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {upcomingLeaves.map((leave) => (
+                        <div key={leave.id} className="flex justify-between items-center border-b pb-4">
+                          <div>
+                            <div className="font-medium">{leave.employee}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {leave.type}: {leave.period}
                             </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {item.type === 'Leave' && (
-                            <div>
-                              <p className="text-sm">{item.startDate} to {item.endDate}</p>
-                              <p className="text-xs text-muted-foreground">{item.days} days</p>
-                            </div>
-                          )}
-                          {item.type === 'Expense' && (
-                            <div>
-                              <p className="text-sm">${item.amount.toFixed(2)}</p>
-                              <p className="text-xs text-muted-foreground">{item.category}</p>
-                            </div>
-                          )}
-                          {item.type === 'Performance Review' && (
-                            <div>
-                              <p className="text-sm">{item.period}</p>
-                              <p className="text-xs text-muted-foreground">Due: {item.dueDate}</p>
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{item.status}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => item.type === 'Leave' && openLeaveDialog(item)}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1 text-green-500" />
-                              Approve
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                            >
-                              <XCircle className="h-4 w-4 mr-1 text-red-500" />
-                              Decline
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="timeoff" className="pt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Time Off Calendar</CardTitle>
-              <CardDescription>View your team's upcoming time off</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="py-4 text-center text-muted-foreground">
-                Calendar view of team leave would go here
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="performance" className="pt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Performance Reviews</CardTitle>
-              <CardDescription>Schedule and manage performance reviews</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="py-4 text-center text-muted-foreground">
-                Performance review management would go here
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="history" className="pt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Approval History</CardTitle>
-              <CardDescription>View your past approvals</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="py-4 text-center text-muted-foreground">
-                Approval history would go here
-              </p>
+                          <Badge variant={leave.status === 'Approved' ? 'default' : 'outline'}>
+                            {leave.status}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="font-medium mb-4">Today's Attendance</h3>
+                  <div className="grid gap-4 grid-cols-3">
+                    <Card>
+                      <CardContent className="p-4 flex flex-col items-center justify-center">
+                        <CheckCircle2 className="h-6 w-6 text-green-500 mb-2" />
+                        <div className="text-sm font-medium">Present</div>
+                        <div className="text-xl font-bold">9</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4 flex flex-col items-center justify-center">
+                        <Calendar className="h-6 w-6 text-blue-500 mb-2" />
+                        <div className="text-sm font-medium">On Leave</div>
+                        <div className="text-xl font-bold">2</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4 flex flex-col items-center justify-center">
+                        <XCircle className="h-6 w-6 text-red-500 mb-2" />
+                        <div className="text-sm font-medium">Absent</div>
+                        <div className="text-xl font-bold">1</div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-      
-      {/* Leave Approval Dialog */}
-      <LeaveApprovalDialog
-        open={leaveDialogOpen}
-        onOpenChange={setLeaveDialogOpen}
-        leaveRequest={selectedLeave}
-        onApprove={handleApproveLeave}
-      />
     </div>
   );
 }

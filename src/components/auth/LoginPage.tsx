@@ -26,6 +26,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
   
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -36,28 +37,44 @@ export default function LoginPage() {
     },
   });
 
-  const handleLogin = (data: LoginFormValues) => {
-    // In a real application, this would be an API call to authenticate the user
-    login(data.email, data.password, data.role);
-    
-    toast.success(`Logged in as ${data.role}`);
-    
-    // Redirect based on user role
-    switch (data.role) {
-      case 'Super Admin':
-        navigate('/super-admin');
-        break;
-      case 'Company Admin':
-        navigate('/company-admin');
-        break;
-      case 'Manager':
-        navigate('/manager-dashboard');
-        break;
-      case 'Employee':
-        navigate('/employee-dashboard');
-        break;
-      default:
-        navigate('/');
+  const handleLogin = async (data: LoginFormValues) => {
+    setIsLoading(true);
+    try {
+      // In a real application with Supabase, we would make an API call to authenticate
+      // const { data: authData, error } = await supabase.auth.signInWithPassword({
+      //   email: data.email,
+      //   password: data.password,
+      // });
+      
+      // if (error) throw error;
+      
+      // For now we'll simulate a successful login
+      login(data.email, data.password, data.role);
+      
+      toast.success(`Logged in as ${data.role}`);
+      
+      // Redirect based on user role
+      switch (data.role) {
+        case 'Super Admin':
+          navigate('/super-admin');
+          break;
+        case 'Company Admin':
+          navigate('/company-admin');
+          break;
+        case 'Manager':
+          navigate('/manager-dashboard');
+          break;
+        case 'Employee':
+          navigate('/employee-dashboard');
+          break;
+        default:
+          navigate('/');
+      }
+    } catch (error) {
+      toast.error("Login failed. Please check your credentials.");
+      console.error("Login error:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -144,7 +161,9 @@ export default function LoginPage() {
                 )}
               />
               
-              <Button type="submit" className="w-full">Log in</Button>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Logging in..." : "Log in"}
+              </Button>
             </form>
           </Form>
         </CardContent>

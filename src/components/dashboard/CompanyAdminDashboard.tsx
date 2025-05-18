@@ -2,178 +2,324 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Users, 
-  FileText, 
-  Calendar, 
-  Clock, 
-  UserPlus, 
+import {
+  Users,
   Banknote,
-  Search,
-  Filter,
-  Mail,
-  Building
+  Calendar,
+  Clock,
+  FileText,
+  UserPlus,
+  LayoutDashboard,
+  ChevronRight,
+  TrendingUp,
+  Bell,
+  BarChart3,
+  DollarSign
 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { DashboardStats } from '@/components/dashboard/DashboardStats';
+import { useState } from 'react';
+import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/contexts/AuthContext';
 
-// Dummy data for pending actions
-const pendingApprovals = [
-  { id: 1, type: "Leave Request", employee: "Sarah Chen", department: "Engineering", submittedAt: "2023-07-15", status: "Pending" },
-  { id: 2, type: "Expense Claim", employee: "Robert Wilson", department: "Finance", submittedAt: "2023-07-14", status: "Pending" },
-  { id: 3, type: "Onboarding", employee: "Jessica Taylor", department: "HR", submittedAt: "2023-07-10", status: "In Progress" },
-  { id: 4, type: "Leave Request", employee: "David Wong", department: "Engineering", submittedAt: "2023-07-09", status: "Pending" },
+// Dummy data for company statistics
+const companyStats = [
+  { title: "Total Employees", value: "48", change: "+3", changeType: "positive" },
+  { title: "Leave Requests", value: "8", change: "+2", changeType: "positive" },
+  { title: "Expense Claims", value: "12", change: "-5", changeType: "negative" },
+  { title: "Open Positions", value: "4", change: "+1", changeType: "positive" }
+];
+
+// Dummy data for recent activities
+const recentActivities = [
+  { id: 1, type: "User Joined", message: "Sarah Chen joined Engineering team", time: "2 hours ago" },
+  { id: 2, type: "Leave Request", message: "Michael Johnson requested annual leave", time: "4 hours ago" },
+  { id: 3, type: "Payroll", message: "May 2025 payroll has been processed", time: "1 day ago" },
+  { id: 4, type: "Expense", message: "5 new expense claims require approval", time: "2 days ago" }
+];
+
+// Dummy data for approaching deadlines
+const approachingDeadlines = [
+  { id: 1, title: "Complete May payroll processing", date: "May 28, 2025", priority: "High" },
+  { id: 2, title: "Q2 tax filing", date: "June 15, 2025", priority: "Medium" },
+  { id: 3, title: "Renewal of health insurance policy", date: "June 30, 2025", priority: "High" },
 ];
 
 export function CompanyAdminDashboard() {
+  const { userEmail } = useAuth();
+  
+  // Extract company name from email domain
+  const companyName = userEmail ? userEmail.split('@')[1]?.split('.')[0] || 'Your Company' : 'Your Company';
+  const displayCompanyName = companyName.charAt(0).toUpperCase() + companyName.slice(1);
+  
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Company Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome to Acme Inc company administration
-          </p>
-        </div>
-        <Button>
-          <UserPlus className="mr-2 h-4 w-4" />
-          Invite User
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Company Admin Dashboard</h1>
+        <p className="text-muted-foreground">
+          Manage HR operations for {displayCompanyName}
+        </p>
       </div>
       
-      <DashboardStats />
+      {/* Company Statistics */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {companyStats.map((stat, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+              {index === 0 ? <Users className="h-4 w-4 text-muted-foreground" /> :
+               index === 1 ? <Calendar className="h-4 w-4 text-muted-foreground" /> :
+               index === 2 ? <FileText className="h-4 w-4 text-muted-foreground" /> :
+               <UserPlus className="h-4 w-4 text-muted-foreground" />}
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <div className={`text-xs flex items-center ${
+                stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {stat.changeType === 'positive' ? 
+                  <TrendingUp className="h-3 w-3 mr-1" /> : 
+                  <TrendingUp className="h-3 w-3 mr-1 transform rotate-180" />
+                }
+                {stat.change} last 30 days
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
       
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Quick Actions Card */}
-        <Card className="md:col-span-1">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button className="w-full justify-start" variant="outline">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add Employee
-            </Button>
-            <Button className="w-full justify-start" variant="outline">
-              <Mail className="mr-2 h-4 w-4" />
-              Send Announcements
-            </Button>
-            <Button className="w-full justify-start" variant="outline">
-              <Banknote className="mr-2 h-4 w-4" />
-              Run Payroll
-            </Button>
-            <Button className="w-full justify-start" variant="outline">
-              <Building className="mr-2 h-4 w-4" />
-              Company Settings
-            </Button>
-          </CardContent>
-        </Card>
-        
-        {/* Pending Approvals Card */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Pending Approvals</CardTitle>
-            <CardDescription>Items that need your attention</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {pendingApprovals.map(item => (
-                <div key={item.id} className="flex items-center justify-between border-b pb-4">
-                  <div>
-                    <div className="font-medium">{item.type}</div>
-                    <div className="text-sm text-muted-foreground">{item.employee} - {item.department}</div>
-                    <div className="text-xs text-muted-foreground">Submitted on {item.submittedAt}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge variant="outline">{item.status}</Badge>
-                    <Button size="sm">Review</Button>
-                  </div>
-                </div>
-              ))}
+      {/* Quick Access */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Quick Access</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Button variant="outline" className="justify-between h-auto p-4">
+            <div className="flex items-center">
+              <Users className="h-5 w-5 mr-3" />
+              <span>People Management</span>
             </div>
-          </CardContent>
-        </Card>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          
+          <Button variant="outline" className="justify-between h-auto p-4">
+            <div className="flex items-center">
+              <Banknote className="h-5 w-5 mr-3" />
+              <span>Run Payroll</span>
+            </div>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          
+          <Button variant="outline" className="justify-between h-auto p-4">
+            <div className="flex items-center">
+              <UserPlus className="h-5 w-5 mr-3" />
+              <span>Add Employee</span>
+            </div>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          
+          <Button variant="outline" className="justify-between h-auto p-4">
+            <div className="flex items-center">
+              <Clock className="h-5 w-5 mr-3" />
+              <span>Time Management</span>
+            </div>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          
+          <Button variant="outline" className="justify-between h-auto p-4">
+            <div className="flex items-center">
+              <BarChart3 className="h-5 w-5 mr-3" />
+              <span>Reports</span>
+            </div>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          
+          <Button variant="outline" className="justify-between h-auto p-4">
+            <div className="flex items-center">
+              <FileText className="h-5 w-5 mr-3" />
+              <span>Documents</span>
+            </div>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       
       {/* Main Content */}
-      <Tabs defaultValue="employees" className="w-full">
+      <Tabs defaultValue="overview" className="w-full">
         <TabsList>
-          <TabsTrigger value="employees">Employees</TabsTrigger>
-          <TabsTrigger value="leave">Time Off</TabsTrigger>
-          <TabsTrigger value="payroll">Payroll</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="overview">
+            <LayoutDashboard className="h-4 w-4 mr-2" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="activities">
+            <Bell className="h-4 w-4 mr-2" />
+            Recent Activities
+          </TabsTrigger>
+          <TabsTrigger value="payroll">
+            <DollarSign className="h-4 w-4 mr-2" />
+            Payroll
+          </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="employees" className="space-y-4 pt-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-                <div className="relative w-full md:w-96">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search employees..." 
-                    className="w-full pl-8" 
-                  />
+        <TabsContent value="overview" className="space-y-4 pt-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Employee Distribution</CardTitle>
+                <CardDescription>Breakdown by department</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Engineering</span>
+                      <span className="text-sm text-muted-foreground">42%</span>
+                    </div>
+                    <Progress value={42} className="h-2 mt-2" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Marketing</span>
+                      <span className="text-sm text-muted-foreground">18%</span>
+                    </div>
+                    <Progress value={18} className="h-2 mt-2" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Sales</span>
+                      <span className="text-sm text-muted-foreground">25%</span>
+                    </div>
+                    <Progress value={25} className="h-2 mt-2" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">HR & Admin</span>
+                      <span className="text-sm text-muted-foreground">10%</span>
+                    </div>
+                    <Progress value={10} className="h-2 mt-2" />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Finance</span>
+                      <span className="text-sm text-muted-foreground">5%</span>
+                    </div>
+                    <Progress value={5} className="h-2 mt-2" />
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm">
-                    <Filter size={16} className="mr-2" />
-                    Filter
-                  </Button>
-                  <Button size="sm">
-                    <UserPlus size={16} className="mr-2" />
-                    Add Employee
-                  </Button>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Approaching Deadlines</CardTitle>
+                <CardDescription>Important dates and tasks</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {approachingDeadlines.map((deadline) => (
+                    <div key={deadline.id} className="flex justify-between items-start border-b pb-3 last:border-0 last:pb-0">
+                      <div>
+                        <div className="font-medium">{deadline.title}</div>
+                        <div className="text-sm text-muted-foreground">{deadline.date}</div>
+                      </div>
+                      <Badge variant={deadline.priority === 'High' ? 'destructive' : 'outline'}>
+                        {deadline.priority}
+                      </Badge>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="py-4 text-center text-muted-foreground">
-                Employee directory would be displayed here
-              </p>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
         
-        <TabsContent value="leave" className="pt-4">
+        <TabsContent value="activities" className="pt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Time Off Management</CardTitle>
-              <CardDescription>Manage employee leave requests</CardDescription>
+              <CardTitle>Recent Activities</CardTitle>
+              <CardDescription>Latest actions and events</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="py-4 text-center text-muted-foreground">
-                Time off management dashboard would go here
-              </p>
+              <div className="space-y-4">
+                {recentActivities.map((activity) => (
+                  <div 
+                    key={activity.id} 
+                    className="flex items-start justify-between border-b pb-4 last:border-0 last:pb-0"
+                  >
+                    <div>
+                      <div className="font-medium">{activity.type}</div>
+                      <div className="text-sm text-muted-foreground">{activity.message}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{activity.time}</div>
+                    </div>
+                    <div>
+                      <Badge variant="secondary">{activity.type.split(' ')[0]}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
         
         <TabsContent value="payroll" className="pt-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Payroll Dashboard</CardTitle>
-              <CardDescription>Manage company payroll</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>May 2025 Payroll</CardTitle>
+                <CardDescription>Processing period: May 1 - 31, 2025</CardDescription>
+              </div>
+              <Button>Run Payroll</Button>
             </CardHeader>
             <CardContent>
-              <p className="py-4 text-center text-muted-foreground">
-                Payroll dashboard would go here
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="reports" className="pt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Company Reports</CardTitle>
-              <CardDescription>View and generate company reports</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="py-4 text-center text-muted-foreground">
-                Reports dashboard would go here
-              </p>
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card>
+                    <CardContent className="p-4 flex flex-col items-center justify-center">
+                      <div className="text-sm font-medium mb-1">Total Payroll</div>
+                      <div className="text-3xl font-bold">$178,500.00</div>
+                      <div className="text-xs text-muted-foreground mt-1">48 employees</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 flex flex-col items-center justify-center">
+                      <div className="text-sm font-medium mb-1">Tax Withholdings</div>
+                      <div className="text-3xl font-bold">$45,325.75</div>
+                      <div className="text-xs text-muted-foreground mt-1">Federal & State</div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 flex flex-col items-center justify-center">
+                      <div className="text-sm font-medium mb-1">Benefit Deductions</div>
+                      <div className="text-3xl font-bold">$15,430.00</div>
+                      <div className="text-xs text-muted-foreground mt-1">Health & Retirement</div>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                <div className="border rounded-md p-4">
+                  <h3 className="font-medium mb-4">Payroll Timeline</h3>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">Payroll Processing</span>
+                        <div className="text-sm text-muted-foreground">May 28, 2025</div>
+                      </div>
+                      <Badge>Upcoming</Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">Bank Transfer</span>
+                        <div className="text-sm text-muted-foreground">May 29, 2025</div>
+                      </div>
+                      <Badge variant="outline">Scheduled</Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">Employee Payment Date</span>
+                        <div className="text-sm text-muted-foreground">June 1, 2025</div>
+                      </div>
+                      <Badge variant="outline">Scheduled</Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

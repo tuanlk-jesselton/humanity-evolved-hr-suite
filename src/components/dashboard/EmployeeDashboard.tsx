@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,30 +19,32 @@ import { LeaveRequestDialog } from '@/components/leave/LeaveRequestDialog';
 import { useState } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Dummy data for my upcoming time off
 const upcomingTimeOff = [
-  { id: 1, type: "Annual Leave", startDate: "2023-08-15", endDate: "2023-08-19", days: 5, status: "Approved" },
-  { id: 2, type: "Sick Leave", startDate: "2023-09-05", endDate: "2023-09-05", days: 1, status: "Pending" },
+  { id: 1, type: "Annual Leave", startDate: "2025-08-15", endDate: "2025-08-19", days: 5, status: "Approved" },
+  { id: 2, type: "Sick Leave", startDate: "2025-09-05", endDate: "2025-09-05", days: 1, status: "Pending" },
 ];
 
 // Dummy data for my recent paystubs
 const recentPaystubs = [
-  { id: 1, period: "July 1-31, 2023", date: "2023-08-01", amount: 4500.00 },
-  { id: 2, period: "June 1-30, 2023", date: "2023-07-01", amount: 4500.00 },
-  { id: 3, period: "May 1-31, 2023", date: "2023-06-01", amount: 4500.00 },
+  { id: 1, period: "July 1-31, 2025", date: "2025-08-01", amount: 4500.00 },
+  { id: 2, period: "June 1-30, 2025", date: "2025-07-01", amount: 4500.00 },
+  { id: 3, period: "May 1-31, 2025", date: "2025-06-01", amount: 4500.00 },
 ];
 
 // Dummy data for notifications
 const notifications = [
   { id: 1, type: "Leave Approved", message: "Your leave request for Aug 15-19 has been approved", time: "2 hours ago" },
   { id: 2, type: "Expense Submitted", message: "Your expense claim for $45.99 has been submitted", time: "1 day ago" },
-  { id: 3, type: "Payslip Available", message: "Your July 2023 payslip is now available", time: "2 days ago" },
+  { id: 3, type: "Payslip Available", message: "Your July 2025 payslip is now available", time: "2 days ago" },
   { id: 4, type: "Review Scheduled", message: "Performance review scheduled for August 10", time: "3 days ago" },
 ];
 
 export function EmployeeDashboard() {
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const { userEmail } = useAuth();
   
   const handleLeaveSubmit = (leaveData: any) => {
     toast.success('Leave request submitted successfully');
@@ -49,18 +52,26 @@ export function EmployeeDashboard() {
     console.log('Leave data submitted:', leaveData);
   };
 
+  // Get first name from email address for greeting
+  const firstName = userEmail ? userEmail.split('@')[0].split('.')[0] : 'Employee';
+  const displayName = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">My Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back, Sarah
+          Welcome back, {displayName}
         </p>
       </div>
       
       {/* Quick Actions */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-        <Button className="h-auto py-4 flex flex-col items-center justify-center gap-2" variant="outline">
+        <Button 
+          onClick={() => setLeaveDialogOpen(true)}
+          className="h-auto py-4 flex flex-col items-center justify-center gap-2" 
+          variant="outline"
+        >
           <Calendar className="h-6 w-6" />
           <span>Request Time Off</span>
         </Button>
@@ -100,7 +111,7 @@ export function EmployeeDashboard() {
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Sep 1, 2023</div>
+            <div className="text-2xl font-bold">Jun 1, 2025</div>
             <p className="text-xs text-muted-foreground">15 days from now</p>
           </CardContent>
         </Card>
@@ -249,11 +260,6 @@ export function EmployeeDashboard() {
               </div>
             </CardContent>
           </Card>
-          <LeaveRequestDialog 
-            open={leaveDialogOpen} 
-            onOpenChange={setLeaveDialogOpen} 
-            onSubmit={handleLeaveSubmit}
-          />
         </TabsContent>
         
         <TabsContent value="pay" className="pt-4">
@@ -295,13 +301,50 @@ export function EmployeeDashboard() {
               <CardDescription>Track your work hours</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="py-4 text-center text-muted-foreground">
-                Attendance tracking would go here
-              </p>
+              <div className="flex justify-center mb-6">
+                <div className="grid grid-cols-2 gap-4 w-full max-w-md">
+                  <Button variant="outline" className="h-24 flex flex-col items-center justify-center">
+                    <Clock className="h-6 w-6 mb-2" />
+                    <span>Clock In</span>
+                  </Button>
+                  <Button variant="outline" className="h-24 flex flex-col items-center justify-center">
+                    <Clock className="h-6 w-6 mb-2" />
+                    <span>Clock Out</span>
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="border rounded-md p-4">
+                <h3 className="font-medium mb-4">Today's Timesheet</h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Status:</span>
+                    <Badge>Clocked In</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Clock In:</span>
+                    <span>09:00 AM</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Clock Out:</span>
+                    <span>-</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Hours Worked:</span>
+                    <span>3h 25m</span>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+      
+      <LeaveRequestDialog 
+        open={leaveDialogOpen} 
+        onOpenChange={setLeaveDialogOpen} 
+        onSubmit={handleLeaveSubmit}
+      />
     </div>
   );
 }
