@@ -1,115 +1,111 @@
 
-import { 
-  Injectable, 
-  UnauthorizedException, 
-  Logger, 
-  Inject, 
-  forwardRef,
-  HttpStatus,
-  HttpException
-} from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
-import { User, Role, UserRole } from './entities';
+import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { User, Role, UserRole } from './entities';
+import { LoginDto } from './dto';
+import { JwtPayload } from './interfaces';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    @InjectRepository(User) 
-    private readonly userRepo: Repository<User>,
-    
-    @InjectRepository(UserRole) 
-    private readonly userRoleRepo: Repository<UserRole>,
-    
-    @InjectRepository(Role) 
-    private readonly roleRepo: Repository<Role>,
-    
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
+    @InjectRepository(Role)
+    private readonly rolesRepository: Repository<Role>,
+    @InjectRepository(UserRole)
+    private readonly userRolesRepository: Repository<UserRole>,
     private readonly jwtService: JwtService,
   ) {}
 
-  async login(email: string, password: string) {
+  async validateUser(email: string, password: string): Promise<any> {
     try {
-      // 1. Find user by email
-      const user = await this.userRepo.findOne({ 
-        where: { email },
-        select: ['id', 'email', 'password_hash', 'full_name', 'is_active', 'company_id']
-      });
-
-      // 2. Check if user exists
+      const user = await this.usersRepository.findOne({ where: { email } });
       if (!user) {
-        this.logger.warn(`Login failed: User with email ${email} not found`);
-        throw new UnauthorizedException('Invalid email or password');
+        throw new UnauthorizedException('Invalid credentials');
       }
 
-      // 3. Check account status
-      if (!user.is_active) {
-        this.logger.warn(`Login failed: User ${email} is inactive`);
-        throw new UnauthorizedException('Account is inactive');
-      }
+      const isPasswordValid = await bcrypt.compare(
+        password,
+        user.password_hash,
+      );
 
-      // 4. Verify password
-      if (!user.password_hash) {
-        this.logger.warn(`Login failed: User ${email} does not have a password set`);
-        throw new UnauthorizedException('Invalid email or password');
-      }
-      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
       if (!isPasswordValid) {
-        this.logger.warn(`Login failed: Invalid password for user ${email}`);
-        throw new UnauthorizedException('Invalid email or password');
+        throw new UnauthorizedException('Invalid credentials');
       }
 
-      // 5. Get user roles
-      const userRoles = await this.userRoleRepo.find({ 
-        where: { user_id: user.id },
-        relations: ['role']
-      });
+      const { password_hash, ...result } = user;
+      return result;
+    } catch (error) {
+      this.logger.error(`Error validating user: ${error.message}`);
+      throw error;
+    }
+  }
 
-      const roles = userRoles.map(ur => ur.role.name);
+  async login(loginDto: LoginDto) {
+    try {
+      const { email, password } = loginDto;
 
-      // 6. Create JWT token
+      const user = await this.validateUser(email, password);
+      
+      // Get user roles
+      const userRoles = await this.getUserRoles(user.id);
+      
       const payload: JwtPayload = {
         sub: user.id,
         email: user.email,
-        roles: roles,
+        roles: userRoles,
       };
-      
-      const token = this.jwtService.sign(payload);
 
-      // 7. Return user info and token
       return {
-        token,
+        token: this.jwtService.sign(payload),
         user: {
           id: user.id,
           email: user.email,
           full_name: user.full_name,
-          company_id: user.company_id
         },
-        roles,
+        roles: userRoles,
       };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Login error: ${errorMessage}`, errorStack);
-      throw error; // Re-throw to be handled by controller
+    } catch (error) {
+      this.logger.error(`Error during login: ${error.message}`);
+      throw error;
     }
   }
-  
+
   async getUserRoles(userId: number): Promise<string[]> {
     try {
-      const userRoles = await this.userRoleRepo.find({
+      const userRoles = await this.userRolesRepository.find({
         where: { user_id: userId },
         relations: ['role'],
       });
-      
-      return userRoles.map(ur => ur.role.name);
+
+      return userRoles.map((userRole) => userRole.role.name);
     } catch (error) {
-      this.logger.error(`Error retrieving user roles: ${error.message}`);
-      return [];
+      this.logger.error(`Error getting user roles: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async getUserFromToken(token: string): Promise<any> {
+    try {
+      const decoded = this.jwtService.verify(token);
+      const user = await this.usersRepository.findOne({
+        where: { id: decoded.sub },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      const { password_hash, ...result } = user;
+      return result;
+    } catch (error) {
+      this.logger.error(`Error getting user from token: ${error.message}`);
+      throw new UnauthorizedException('Invalid token');
     }
   }
 }
