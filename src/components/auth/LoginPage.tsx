@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -49,7 +48,7 @@ export default function LoginPage() {
       // if (error) throw error;
       
       // For now we'll simulate a successful login
-      login(data.email, data.password, data.role);
+      await login(data.email, data.password);
       
       toast.success(`Logged in as ${data.role}`);
       
