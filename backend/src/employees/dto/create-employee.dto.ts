@@ -1,194 +1,176 @@
 
-import { IsNotEmpty, IsOptional, IsString, IsDate, IsNumber, ValidateNested, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsEmail, IsDate, IsOptional, IsBoolean, ValidateNested, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { EmploymentType, EmploymentStatus } from '../../entities/employment-detail.entity';
-import { SalaryType, PaymentFrequency } from '../../entities/salary.entity';
+import { ApiProperty } from '@nestjs/swagger';
 
-class EmploymentDetailDto {
-  @ApiProperty({ description: 'Hire date', example: '2023-01-15' })
-  @IsNotEmpty()
+class EmploymentDetailsDto {
+  @ApiProperty({ description: 'Employment start date' })
   @IsDate()
   @Type(() => Date)
-  hire_date!: Date;
+  start_date: Date;
 
-  @ApiPropertyOptional({ description: 'End date', example: '2025-01-15' })
-  @IsOptional()
+  @ApiProperty({ description: 'Employment end date', required: false })
   @IsDate()
+  @IsOptional()
   @Type(() => Date)
   end_date?: Date;
 
-  @ApiPropertyOptional({ 
-    description: 'Employment type', 
-    enum: EmploymentType, 
-    default: EmploymentType.FULL_TIME 
-  })
-  @IsOptional()
-  @IsEnum(EmploymentType)
-  employment_type?: EmploymentType;
-
-  @ApiPropertyOptional({ 
-    description: 'Employment status', 
-    enum: EmploymentStatus, 
-    default: EmploymentStatus.ACTIVE 
-  })
-  @IsOptional()
-  @IsEnum(EmploymentStatus)
-  status?: EmploymentStatus;
-
-  @ApiPropertyOptional({ description: 'Contract file URL', example: 'https://example.com/contract.pdf' })
-  @IsOptional()
+  @ApiProperty({ description: 'Employment type (full-time, part-time, contract, etc.)' })
   @IsString()
-  contract_file?: string;
+  employment_type: string;
 
-  @ApiPropertyOptional({ description: 'Notes', example: 'Probation period: 3 months' })
+  @ApiProperty({ description: 'Is current employment', default: true })
+  @IsBoolean()
   @IsOptional()
+  is_current?: boolean;
+
+  @ApiProperty({ description: 'Employment status (active, on leave, terminated, etc.)' })
   @IsString()
+  @IsOptional()
+  status?: string;
+
+  @ApiProperty({ description: 'Additional employment notes', required: false })
+  @IsString()
+  @IsOptional()
   notes?: string;
 }
 
 class SalaryDto {
-  @ApiProperty({ description: 'Effective date', example: '2023-01-15' })
-  @IsNotEmpty()
+  @ApiProperty({ description: 'Base salary amount' })
+  @IsNumber()
+  base_amount: number;
+
+  @ApiProperty({ description: 'Currency code (USD, EUR, etc.)' })
+  @IsString()
+  currency: string;
+
+  @ApiProperty({ description: 'Payment frequency (hourly, weekly, monthly, annually)' })
+  @IsString()
+  frequency: string;
+
+  @ApiProperty({ description: 'Effective date of the salary' })
   @IsDate()
   @Type(() => Date)
-  effective_date!: Date;
+  effective_date: Date;
 
-  @ApiPropertyOptional({ 
-    description: 'Salary type', 
-    enum: SalaryType, 
-    default: SalaryType.MONTHLY 
-  })
+  @ApiProperty({ description: 'Is current salary', default: true })
+  @IsBoolean()
   @IsOptional()
-  @IsEnum(SalaryType)
-  salary_type?: SalaryType;
+  is_current?: boolean;
 
-  @ApiProperty({ description: 'Salary amount', example: 5000 })
-  @IsNotEmpty()
+  @ApiProperty({ description: 'Additional allowances', required: false })
   @IsNumber()
-  amount!: number;
-
-  @ApiPropertyOptional({ 
-    description: 'Payment frequency', 
-    enum: PaymentFrequency, 
-    default: PaymentFrequency.MONTHLY 
-  })
   @IsOptional()
-  @IsEnum(PaymentFrequency)
-  payment_frequency?: PaymentFrequency;
+  allowances?: number;
 
-  @ApiPropertyOptional({ description: 'Currency', example: 'USD', default: 'USD' })
-  @IsOptional()
+  @ApiProperty({ description: 'Additional notes about salary', required: false })
   @IsString()
-  currency?: string;
-
-  @ApiPropertyOptional({ description: 'Notes', example: 'Includes transportation allowance' })
   @IsOptional()
-  @IsString()
   notes?: string;
 }
 
 export class CreateEmployeeDto {
-  @ApiProperty({ description: 'User ID', example: 1 })
-  @IsNotEmpty()
+  @ApiProperty({ description: 'User ID associated with this employee' })
   @IsNumber()
-  user_id!: number;
+  user_id: number;
 
-  @ApiPropertyOptional({ description: 'Department ID', example: 1 })
-  @IsOptional()
+  @ApiProperty({ description: 'Department ID', required: false })
   @IsNumber()
+  @IsOptional()
   department_id?: number;
 
-  @ApiPropertyOptional({ description: 'Manager ID', example: 1 })
-  @IsOptional()
+  @ApiProperty({ description: 'Manager ID (Employee ID of the manager)', required: false })
   @IsNumber()
+  @IsOptional()
   manager_id?: number;
 
-  @ApiPropertyOptional({ description: 'Employee ID', example: 'EMP-001' })
-  @IsOptional()
+  @ApiProperty({ description: 'Employee ID/code in the company', required: false })
   @IsString()
+  @IsOptional()
   employee_id?: string;
 
-  @ApiPropertyOptional({ description: 'Job title', example: 'Software Engineer' })
-  @IsOptional()
+  @ApiProperty({ description: 'Job title', required: false })
   @IsString()
+  @IsOptional()
   job_title?: string;
 
-  @ApiPropertyOptional({ description: 'Date of birth', example: '1990-01-01' })
-  @IsOptional()
+  @ApiProperty({ description: 'Date of birth', required: false })
   @IsDate()
+  @IsOptional()
   @Type(() => Date)
   date_of_birth?: Date;
 
-  @ApiPropertyOptional({ description: 'Gender', example: 'Male' })
-  @IsOptional()
+  @ApiProperty({ description: 'Gender', required: false })
   @IsString()
+  @IsOptional()
   gender?: string;
 
-  @ApiPropertyOptional({ description: 'Marital status', example: 'Single' })
-  @IsOptional()
+  @ApiProperty({ description: 'Marital status', required: false })
   @IsString()
+  @IsOptional()
   marital_status?: string;
 
-  @ApiPropertyOptional({ description: 'Phone number', example: '+1 (555) 123-4567' })
-  @IsOptional()
+  @ApiProperty({ description: 'Phone number', required: false })
   @IsString()
+  @IsOptional()
   phone_number?: string;
 
-  @ApiPropertyOptional({ description: 'Emergency contact name', example: 'John Doe' })
-  @IsOptional()
+  @ApiProperty({ description: 'Emergency contact name', required: false })
   @IsString()
+  @IsOptional()
   emergency_contact_name?: string;
 
-  @ApiPropertyOptional({ description: 'Emergency contact phone', example: '+1 (555) 987-6543' })
-  @IsOptional()
+  @ApiProperty({ description: 'Emergency contact phone', required: false })
   @IsString()
+  @IsOptional()
   emergency_contact_phone?: string;
 
-  @ApiPropertyOptional({ description: 'Address', example: '123 Main St' })
-  @IsOptional()
+  @ApiProperty({ description: 'Home address', required: false })
   @IsString()
+  @IsOptional()
   address?: string;
 
-  @ApiPropertyOptional({ description: 'City', example: 'San Francisco' })
-  @IsOptional()
+  @ApiProperty({ description: 'City', required: false })
   @IsString()
+  @IsOptional()
   city?: string;
 
-  @ApiPropertyOptional({ description: 'State/Province', example: 'CA' })
-  @IsOptional()
+  @ApiProperty({ description: 'State/Province', required: false })
   @IsString()
+  @IsOptional()
   state?: string;
 
-  @ApiPropertyOptional({ description: 'Postal code', example: '94105' })
-  @IsOptional()
+  @ApiProperty({ description: 'Postal code', required: false })
   @IsString()
+  @IsOptional()
   postal_code?: string;
 
-  @ApiPropertyOptional({ description: 'Country', example: 'USA' })
-  @IsOptional()
+  @ApiProperty({ description: 'Country', required: false })
   @IsString()
+  @IsOptional()
   country?: string;
 
-  @ApiPropertyOptional({ description: 'Nationality', example: 'American' })
-  @IsOptional()
+  @ApiProperty({ description: 'Nationality', required: false })
   @IsString()
+  @IsOptional()
   nationality?: string;
 
-  @ApiPropertyOptional({ description: 'Profile image URL', example: 'https://example.com/profile.jpg' })
-  @IsOptional()
+  @ApiProperty({ description: 'Profile image URL', required: false })
   @IsString()
+  @IsOptional()
   profile_image?: string;
 
-  @ApiPropertyOptional({ description: 'Employment details' })
-  @IsOptional()
+  @ApiProperty({ description: 'Employment details', type: EmploymentDetailsDto, required: false })
+  @IsObject()
   @ValidateNested()
-  @Type(() => EmploymentDetailDto)
-  employmentDetails?: EmploymentDetailDto;
-
-  @ApiPropertyOptional({ description: 'Salary information' })
+  @Type(() => EmploymentDetailsDto)
   @IsOptional()
+  employmentDetails?: EmploymentDetailsDto;
+
+  @ApiProperty({ description: 'Salary information', type: SalaryDto, required: false })
+  @IsObject()
   @ValidateNested()
   @Type(() => SalaryDto)
+  @IsOptional()
   salary?: SalaryDto;
 }

@@ -1,80 +1,123 @@
 
-import { IsNotEmpty, IsString, IsOptional, IsUrl, IsEmail } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsObject, IsOptional, IsEmail, IsBoolean, ValidateNested, IsArray } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 
-export class CreateCompanyDto {
-  @ApiProperty({ description: 'Company name', example: 'Acme Inc.' })
-  @IsNotEmpty()
+class AddressDto {
+  @ApiProperty({ description: 'Street address' })
   @IsString()
-  name!: string;
-
-  @ApiPropertyOptional({ description: 'Company domain', example: 'acme.com' })
   @IsOptional()
+  street?: string;
+
+  @ApiProperty({ description: 'City' })
   @IsString()
-  domain?: string;
-
-  @ApiPropertyOptional({ description: 'Company logo URL', example: 'https://example.com/logo.png' })
   @IsOptional()
-  @IsUrl()
-  logo_url?: string;
-
-  @ApiPropertyOptional({ description: 'Industry', example: 'Technology' })
-  @IsOptional()
-  @IsString()
-  industry?: string;
-
-  @ApiPropertyOptional({ description: 'Company size', example: '50-100' })
-  @IsOptional()
-  @IsString()
-  size?: string;
-
-  @ApiPropertyOptional({ description: 'Company address', example: '123 Main St' })
-  @IsOptional()
-  @IsString()
-  address?: string;
-
-  @ApiPropertyOptional({ description: 'City', example: 'San Francisco' })
-  @IsOptional()
-  @IsString()
   city?: string;
 
-  @ApiPropertyOptional({ description: 'State/Province', example: 'CA' })
-  @IsOptional()
+  @ApiProperty({ description: 'State/Province' })
   @IsString()
+  @IsOptional()
   state?: string;
 
-  @ApiPropertyOptional({ description: 'Postal code', example: '94105' })
-  @IsOptional()
+  @ApiProperty({ description: 'Postal code' })
   @IsString()
+  @IsOptional()
   postal_code?: string;
 
-  @ApiPropertyOptional({ description: 'Country', example: 'USA' })
-  @IsOptional()
+  @ApiProperty({ description: 'Country' })
   @IsString()
+  @IsOptional()
   country?: string;
+}
 
-  @ApiPropertyOptional({ description: 'Phone number', example: '+1 (555) 123-4567' })
-  @IsOptional()
+class ContactDto {
+  @ApiProperty({ description: 'Contact person name' })
   @IsString()
-  phone?: string;
-
-  @ApiPropertyOptional({ description: 'Company email', example: 'info@acme.com' })
   @IsOptional()
+  name?: string;
+
+  @ApiProperty({ description: 'Contact email' })
   @IsEmail()
+  @IsOptional()
   email?: string;
 
-  @ApiPropertyOptional({ description: 'Website', example: 'https://acme.com' })
-  @IsOptional()
-  @IsUrl()
-  website?: string;
-
-  @ApiPropertyOptional({ description: 'Tax ID', example: '123-45-6789' })
-  @IsOptional()
+  @ApiProperty({ description: 'Contact phone number' })
   @IsString()
+  @IsOptional()
+  phone?: string;
+}
+
+export class CreateCompanyDto {
+  @ApiProperty({ description: 'Company name' })
+  @IsString()
+  name: string;
+
+  @ApiProperty({ description: 'Legal business name', required: false })
+  @IsString()
+  @IsOptional()
+  legal_name?: string;
+
+  @ApiProperty({ description: 'Tax identification number', required: false })
+  @IsString()
+  @IsOptional()
   tax_id?: string;
 
-  @ApiPropertyOptional({ description: 'Registration number', example: 'REG12345678' })
-  @IsOptional()
+  @ApiProperty({ description: 'Registration number', required: false })
   @IsString()
+  @IsOptional()
   registration_number?: string;
+
+  @ApiProperty({ description: 'Company address', type: AddressDto, required: false })
+  @IsObject()
+  @ValidateNested()
+  @Type(() => AddressDto)
+  @IsOptional()
+  address?: AddressDto;
+
+  @ApiProperty({ description: 'Primary contact information', type: ContactDto, required: false })
+  @IsObject()
+  @ValidateNested()
+  @Type(() => ContactDto)
+  @IsOptional()
+  primary_contact?: ContactDto;
+
+  @ApiProperty({ description: 'Industry', required: false })
+  @IsString()
+  @IsOptional()
+  industry?: string;
+
+  @ApiProperty({ description: 'Company website URL', required: false })
+  @IsString()
+  @IsOptional()
+  website?: string;
+
+  @ApiProperty({ description: 'Company phone number', required: false })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiProperty({ description: 'Company email address', required: false })
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
+  @ApiProperty({ description: 'Founded date in ISO format', required: false })
+  @IsString()
+  @IsOptional()
+  founded_date?: string;
+
+  @ApiProperty({ description: 'Fiscal year end month (1-12)', required: false })
+  @IsString()
+  @IsOptional()
+  fiscal_year_end?: string;
+
+  @ApiProperty({ description: 'Company logo URL', required: false })
+  @IsString()
+  @IsOptional()
+  logo_url?: string;
+
+  @ApiProperty({ description: 'Is the company active', required: false, default: true })
+  @IsBoolean()
+  @IsOptional()
+  is_active?: boolean;
 }

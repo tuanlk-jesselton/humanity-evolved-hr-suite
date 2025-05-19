@@ -1,11 +1,11 @@
 
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, Role, UserRole } from './entities';
-import { LoginDto } from './dto';
+import { LoginDto, RegisterDto } from './dto';
 import { JwtPayload } from './interfaces';
 
 @Injectable()
@@ -46,10 +46,8 @@ export class AuthService {
     }
   }
 
-  async login(loginDto: LoginDto) {
+  async login(email: string, password: string) {
     try {
-      const { email, password } = loginDto;
-
       const user = await this.validateUser(email, password);
       
       // Get user roles
@@ -72,6 +70,66 @@ export class AuthService {
       };
     } catch (error) {
       this.logger.error(`Error during login: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async register(registerDto: RegisterDto) {
+    const { email, password, full_name, company_id } = registerDto;
+    
+    try {
+      // Check if email is already taken
+      const existingUser = await this.usersRepository.findOne({ where: { email } });
+      if (existingUser) {
+        throw new ConflictException('Email already exists');
+      }
+      
+      // Hash the password
+      const passwordHash = await bcrypt.hash(password, 10);
+      
+      // Create the user
+      const newUser = this.usersRepository.create({
+        email,
+        password_hash: passwordHash,
+        full_name,
+        company_id,
+        is_active: true,
+      });
+      
+      const savedUser = await this.usersRepository.save(newUser);
+      
+      // Assign default 'Employee' role
+      const employeeRole = await this.rolesRepository.findOne({ where: { name: 'Employee' } });
+      
+      if (!employeeRole) {
+        this.logger.warn('Employee role not found. Creating new role.');
+        const role = this.rolesRepository.create({
+          name: 'Employee',
+          description: 'Regular employee with basic access'
+        });
+        const savedRole = await this.rolesRepository.save(role);
+        
+        const userRole = this.userRolesRepository.create({
+          user_id: savedUser.id,
+          role_id: savedRole.id,
+        });
+        await this.userRolesRepository.save(userRole);
+      } else {
+        const userRole = this.userRolesRepository.create({
+          user_id: savedUser.id,
+          role_id: employeeRole.id,
+        });
+        await this.userRolesRepository.save(userRole);
+      }
+      
+      // Return user without password
+      const { password_hash, ...result } = savedUser;
+      return {
+        ...result,
+        roles: ['Employee'],
+      };
+    } catch (error) {
+      this.logger.error(`Error during registration: ${error.message}`);
       throw error;
     }
   }
@@ -106,6 +164,30 @@ export class AuthService {
     } catch (error) {
       this.logger.error(`Error getting user from token: ${error.message}`);
       throw new UnauthorizedException('Invalid token');
+    }
+  }
+
+  async getUserInfo(userId: number): Promise<any> {
+    try {
+      const user = await this.usersRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const userRoles = await this.getUserRoles(userId);
+
+      const { password_hash, ...userInfo } = user;
+      
+      return {
+        ...userInfo,
+        roles: userRoles,
+      };
+    } catch (error) {
+      this.logger.error(`Error getting user info: ${error.message}`);
+      throw error;
     }
   }
 }

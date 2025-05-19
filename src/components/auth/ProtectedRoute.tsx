@@ -16,8 +16,13 @@ export function ProtectedRoute({
   redirectTo = '/login',
   children
 }: ProtectedRouteProps) {
-  const { isAuthenticated, userRole } = useAuth();
+  const { isAuthenticated, userRole, loading } = useAuth();
 
+  // Show loading state if auth is still being checked
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+  
   if (!isAuthenticated) {
     return <Navigate to={redirectTo} replace />;
   }
