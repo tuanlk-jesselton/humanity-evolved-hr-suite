@@ -31,6 +31,8 @@ import SuperAdmin from "./pages/SuperAdmin";
 import CompanyAdmin from "./pages/CompanyAdmin";
 import ManagerDashboardPage from "./pages/ManagerDashboard";
 import EmployeeDashboardPage from "./pages/EmployeeDashboard";
+import UserManagement from "./pages/UserManagement";
+import SystemSettings from "./pages/SystemSettings";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
@@ -77,6 +79,19 @@ const App = () => (
             <Route path="/company-setup" element={
               <ProtectedRoute allowedRoles={['Super Admin', 'Company Admin']}>
                 <CompanySetup />
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin Routes */}
+            <Route path="/user-management" element={
+              <ProtectedRoute allowedRoles={['Super Admin', 'Company Admin']}>
+                <UserManagement />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/system-settings" element={
+              <ProtectedRoute allowedRoles={['Super Admin']}>
+                <SystemSettings />
               </ProtectedRoute>
             } />
             

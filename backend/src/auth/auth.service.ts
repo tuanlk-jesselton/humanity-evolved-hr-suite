@@ -1,3 +1,4 @@
+
 import { 
   Injectable, 
   UnauthorizedException, 
@@ -33,25 +34,25 @@ export class AuthService {
 
   async login(email: string, password: string) {
     try {
-      // 1. Tìm user theo email
+      // 1. Find user by email
       const user = await this.userRepo.findOne({ 
         where: { email },
-        select: ['id', 'email', 'password_hash', 'full_name', 'is_active']
+        select: ['id', 'email', 'password_hash', 'full_name', 'is_active', 'company_id']
       });
 
-      // 2. Kiểm tra user tồn tại
+      // 2. Check if user exists
       if (!user) {
         this.logger.warn(`Login failed: User with email ${email} not found`);
         throw new UnauthorizedException('Invalid email or password');
       }
 
-      // 3. Kiểm tra trạng thái tài khoản
+      // 3. Check account status
       if (!user.is_active) {
         this.logger.warn(`Login failed: User ${email} is inactive`);
         throw new UnauthorizedException('Account is inactive');
       }
 
-      // 4. Kiểm tra mật khẩu
+      // 4. Verify password
       if (!user.password_hash) {
         this.logger.warn(`Login failed: User ${email} does not have a password set`);
         throw new UnauthorizedException('Invalid email or password');
@@ -62,7 +63,7 @@ export class AuthService {
         throw new UnauthorizedException('Invalid email or password');
       }
 
-      // 5. Lấy danh sách roles của user
+      // 5. Get user roles
       const userRoles = await this.userRoleRepo.find({ 
         where: { user_id: user.id },
         relations: ['role']
@@ -70,7 +71,7 @@ export class AuthService {
 
       const roles = userRoles.map(ur => ur.role.name);
 
-      // 6. Tạo JWT token
+      // 6. Create JWT token
       const payload: JwtPayload = {
         sub: user.id,
         email: user.email,
@@ -79,13 +80,14 @@ export class AuthService {
       
       const token = this.jwtService.sign(payload);
 
-      // 7. Trả về thông tin user và token
+      // 7. Return user info and token
       return {
         token,
         user: {
           id: user.id,
           email: user.email,
           full_name: user.full_name,
+          company_id: user.company_id
         },
         roles,
       };
@@ -93,7 +95,21 @@ export class AuthService {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Login error: ${errorMessage}`, errorStack);
-      throw error; // Re-throw để xử lý ở controller
+      throw error; // Re-throw to be handled by controller
+    }
+  }
+  
+  async getUserRoles(userId: number): Promise<string[]> {
+    try {
+      const userRoles = await this.userRoleRepo.find({
+        where: { user_id: userId },
+        relations: ['role'],
+      });
+      
+      return userRoles.map(ur => ur.role.name);
+    } catch (error) {
+      this.logger.error(`Error retrieving user roles: ${error.message}`);
+      return [];
     }
   }
 }
