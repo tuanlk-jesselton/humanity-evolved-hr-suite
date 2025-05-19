@@ -16,30 +16,29 @@ export function ProtectedRoute({
   redirectTo = '/login',
   children
 }: ProtectedRouteProps) {
-  const { isAuthenticated, userRoles } = useAuth();
+  const { isAuthenticated, userRole } = useAuth();
 
   if (!isAuthenticated) {
     return <Navigate to={redirectTo} replace />;
   }
 
-  // Check if user has at least one allowed role
-  const hasAllowedRole = userRoles.some(role => allowedRoles.includes(role));
+  // Check if user has an allowed role
+  const hasAllowedRole = allowedRoles.includes(userRole as UserRole);
 
   if (!hasAllowedRole) {
-    // Redirect to the highest-priority dashboard based on user's roles
-    if (userRoles.includes('Super Admin')) {
-      return <Navigate to="/super-admin" replace />;
+    // Redirect based on user's role
+    switch(userRole) {
+      case 'Super Admin':
+        return <Navigate to="/super-admin" replace />;
+      case 'Company Admin':
+        return <Navigate to="/company-admin" replace />;
+      case 'Manager':
+        return <Navigate to="/manager-dashboard" replace />;
+      case 'Employee':
+        return <Navigate to="/employee-dashboard" replace />;
+      default:
+        return <Navigate to={redirectTo} replace />;
     }
-    if (userRoles.includes('Company Admin')) {
-      return <Navigate to="/company-admin" replace />;
-    }
-    if (userRoles.includes('Manager')) {
-      return <Navigate to="/manager-dashboard" replace />;
-    }
-    if (userRoles.includes('Employee')) {
-      return <Navigate to="/employee-dashboard" replace />;
-    }
-    return <Navigate to={redirectTo} replace />;
   }
 
   // User is authenticated and has an allowed role
