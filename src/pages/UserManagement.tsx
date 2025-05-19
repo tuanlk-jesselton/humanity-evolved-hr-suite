@@ -140,7 +140,10 @@ export default function UserManagement() {
                       </TableCell>
                       <TableCell>{user.company_name || '-'}</TableCell>
                       <TableCell>
-                        <Badge variant={user.is_active ? "success" : "destructive"}>
+                        <Badge 
+                          variant={user.is_active ? "secondary" : "destructive"}
+                          className={user.is_active ? "bg-green-100 text-green-800 hover:bg-green-100" : ""}
+                        >
                           {user.is_active ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
