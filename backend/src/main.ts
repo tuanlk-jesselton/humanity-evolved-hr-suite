@@ -14,9 +14,15 @@ async function bootstrap() {
   const frontendUrl = configService.get('FRONTEND_URL', 'http://localhost:3000');
   
   app.use(cors({
-    origin: [frontendUrl, 'http://localhost:5173'], // Add Vite's default port
+    origin: [
+      frontendUrl, 
+      'http://localhost:5173',
+      'https://id-preview--5c43eb50-ecda-481d-ac8d-010ce17d2e16.lovable.app',
+      /\.lovable\.app$/  // Allow all subdomains of lovable.app
+    ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
+    allowedHeaders: 'Origin,X-Requested-With,Content-Type,Accept,Authorization',
   }));
 
   // Global validation pipe
