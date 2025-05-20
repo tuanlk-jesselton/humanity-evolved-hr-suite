@@ -6,13 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Eye, EyeOff } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { login } from '@/store/slices/authSlice';
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -23,9 +23,8 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const { loading, error, isAuthenticated, user } = useAppSelector(state => state.auth);
   const [showPassword, setShowPassword] = useState(false);
   
   const form = useForm<LoginFormValues>({
@@ -53,31 +52,12 @@ export default function Login() {
   };
 
   const handleLogin = async (data: LoginFormValues) => {
-    setIsLoading(true);
-    setError(null);
+    const resultAction = await dispatch(login({ email: data.email, password: data.password }));
     
-    try {
-      const result = await login(data.email, data.password);
-      
-      if (result.success && result.userRole) {
-        toast.success('Logged in successfully');
-        
-        // Use window.location.href to force a full page reload
-        // This ensures all auth state is properly initialized
-        const redirectPath = getDashboardRoute(result.userRole);
-        window.location.href = redirectPath;
-      } else {
-        const errorMessage = result.error || 'Login failed. Please try again.';
-        setError(errorMessage);
-        toast.error(errorMessage);
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      const errorMessage = 'An unexpected error occurred. Please try again.';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsLoading(false);
+    if (login.fulfilled.match(resultAction)) {
+      const userRole = resultAction.payload.user.roles?.[0] || '';
+      const redirectPath = getDashboardRoute(userRole);
+      navigate(redirectPath);
     }
   };
 
@@ -93,6 +73,7 @@ export default function Login() {
       
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-2 text-center">
+          <CardTitle className="text-2xl font-bold">Login to Your Account</CardTitle>
           <CardDescription>Enter your credentials to access your account</CardDescription>
         </CardHeader>
         <CardContent>
@@ -150,8 +131,8 @@ export default function Login() {
                 <div className="text-sm text-destructive">{error}</div>
               )}
               
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Logging in..." : "Log in"}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Logging in..." : "Log in"}
               </Button>
             </form>
           </Form>

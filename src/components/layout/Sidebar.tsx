@@ -1,196 +1,115 @@
 
-import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { 
+  BarChart3, 
   Users, 
-  LayoutDashboard, 
-  Banknote, 
+  Briefcase, 
   Calendar, 
   Clock, 
   FileText, 
   Award, 
-  Settings, 
-  ChevronLeft, 
-  ChevronRight,
-  UserPlus,
-  PiggyBank,
-  Bell,
-  Building,
+  Settings,
   CreditCard,
-  Shield,
-  TrendingUp,
-  User
+  Home
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Logo } from '@/components/common/Logo';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAppSelector } from '@/store/hooks';
 
-type NavItemProps = {
-  to: string;
-  icon: React.ElementType;
-  label: string;
-  isCollapsed: boolean;
-  isActive: boolean;
-};
+interface SidebarProps {
+  isOpen: boolean;
+}
 
-const NavItem = ({ to, icon: Icon, label, isCollapsed, isActive }: NavItemProps) => {
-  return (
-    <Link to={to}>
-      <Button 
-        variant="ghost" 
-        className={cn(
-          "w-full justify-start gap-3 font-normal",
-          isCollapsed ? "justify-center px-2" : "px-4",
-          isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-        )}
-      >
-        <Icon size={20} />
-        {!isCollapsed && <span>{label}</span>}
-      </Button>
-    </Link>
-  );
-};
+interface SidebarItemProps {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  active: boolean;
+}
 
-const NavSection = ({ 
-  title, 
-  items, 
-  isCollapsed 
-}: { 
-  title: string; 
-  items: { to: string; icon: React.ElementType; label: string }[];
-  isCollapsed: boolean;
-}) => {
+export function Sidebar({ isOpen }: SidebarProps) {
   const location = useLocation();
+  const { user } = useAppSelector(state => state.auth);
+  const userRole = user?.roles?.[0] || '';
   
-  return (
-    <div className="mb-6">
-      {!isCollapsed && (
-        <div className="mb-2 px-4 text-xs uppercase tracking-wider text-sidebar-foreground/60">
-          {title}
-        </div>
-      )}
-      <div className="space-y-1">
-        {items.map((item) => (
-          <NavItem
-            key={item.to}
-            to={item.to}
-            icon={item.icon}
-            label={item.label}
-            isCollapsed={isCollapsed}
-            isActive={location.pathname === item.to}
-          />
-        ))}
-      </div>
-    </div>
-  );
-};
+  // Get the first path segment for the active state
+  const currentPath = location.pathname.split('/')[1];
 
-export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
-  const { userRole, userEmail } = useAuth();
-  const location = useLocation();
-  
-  // Get dashboard route based on user role
-  const getDashboardRoute = () => {
-    switch (userRole) {
-      case 'Super Admin':
-        return '/super-admin';
-      case 'Company Admin':
-        return '/company-admin';
-      case 'Manager':
-        return '/manager-dashboard';
-      case 'Employee':
-        return '/employee-dashboard';
-      default:
-        return '/';
-    }
-  };
-  
-  // Định nghĩa menu sidebar cho từng vai trò theo chuẩn Gusto
-  const SIDEBAR_MENUS: Record<string, { to: string; icon: React.ElementType; label: string }[]> = {
+  // Define navigation based on user role
+  const navigation = {
     'Super Admin': [
-      { to: '/super-admin', icon: Shield, label: 'System Dashboard' },
-      { to: '/companies', icon: Building, label: 'Companies' },
-      { to: '/audit-logs', icon: FileText, label: 'Audit Logs' },
-      { to: '/system-settings', icon: Settings, label: 'System Settings' }
+      { href: '/super-admin', icon: <Home />, title: 'Dashboard' },
+      { href: '/users', icon: <Users />, title: 'Users' },
+      { href: '/companies', icon: <Briefcase />, title: 'Companies' },
+      { href: '/system-settings', icon: <Settings />, title: 'System Settings' },
     ],
     'Company Admin': [
-      { to: getDashboardRoute(), icon: LayoutDashboard, label: 'Company Dashboard' },
-      { to: '/employees', icon: Users, label: 'Employees' },
-      { to: '/payroll', icon: Banknote, label: 'Payroll' },
-      { to: '/benefits', icon: PiggyBank, label: 'Benefits' },
-      { to: '/time-tracking', icon: Clock, label: 'Time Tracking' },
-      { to: '/leave-requests', icon: Calendar, label: 'Leave Requests' },
-      { to: '/claims', icon: FileText, label: 'Expenses' },
-      { to: '/documents', icon: FileText, label: 'Documents' },
-      { to: '/compliance', icon: Shield, label: 'Compliance' },
-      { to: '/reports', icon: TrendingUp, label: 'Reports' },
-      { to: '/company-settings', icon: Settings, label: 'Company Settings' }
+      { href: '/company-admin', icon: <Home />, title: 'Dashboard' },
+      { href: '/employees', icon: <Users />, title: 'Employees' },
+      { href: '/payroll', icon: <CreditCard />, title: 'Payroll' },
+      { href: '/leave', icon: <Calendar />, title: 'Leave' },
+      { href: '/time-tracking', icon: <Clock />, title: 'Time & Attendance' },
+      { href: '/claims', icon: <FileText />, title: 'Claims' },
+      { href: '/performance', icon: <Award />, title: 'Performance' },
+      { href: '/reports', icon: <BarChart3 />, title: 'Reports' },
+      { href: '/settings', icon: <Settings />, title: 'Settings' },
     ],
     'Manager': [
-      { to: getDashboardRoute(), icon: LayoutDashboard, label: 'Team Dashboard' },
-      { to: '/my-team', icon: Users, label: 'My Team' },
-      { to: '/team-timesheet', icon: Clock, label: 'Team Timesheet' },
-      { to: '/leave-approvals', icon: Calendar, label: 'Leave Approvals' },
-      { to: '/performance', icon: Award, label: 'Performance' },
-      { to: '/team-reports', icon: TrendingUp, label: 'Team Reports' },
-      { to: '/team-documents', icon: FileText, label: 'Team Documents' }
+      { href: '/manager-dashboard', icon: <Home />, title: 'Dashboard' },
+      { href: '/employees', icon: <Users />, title: 'My Team' },
+      { href: '/leave', icon: <Calendar />, title: 'Leave Requests' },
+      { href: '/time-tracking', icon: <Clock />, title: 'Time & Attendance' },
+      { href: '/performance', icon: <Award />, title: 'Performance' },
     ],
     'Employee': [
-      { to: getDashboardRoute(), icon: LayoutDashboard, label: 'My Dashboard' },
-      { to: '/attendance', icon: Clock, label: 'Attendance' },
-      { to: '/leave', icon: Calendar, label: 'Leave' },
-      { to: '/payroll', icon: Banknote, label: 'Payroll' },
-      { to: '/benefits', icon: PiggyBank, label: 'Benefits' },
-      { to: '/my-documents', icon: FileText, label: 'My Documents' },
-      { to: '/my-profile', icon: User, label: 'My Profile' }
-    ]
+      { href: '/employee-dashboard', icon: <Home />, title: 'Dashboard' },
+      { href: '/leave', icon: <Calendar />, title: 'Leave' },
+      { href: '/time-tracking', icon: <Clock />, title: 'Time' },
+      { href: '/claims', icon: <FileText />, title: 'Claims' },
+      { href: '/payslips', icon: <CreditCard />, title: 'Payslips' },
+    ],
   };
 
+  // Get navigation items based on user role
+  const navItems = navigation[userRole as keyof typeof navigation] || navigation['Employee'];
+
+  function SidebarItem({ href, icon, title, active }: SidebarItemProps) {
+    return (
+      <Link
+        to={href}
+        className={cn(
+          "flex items-center gap-3 rounded-lg px-3 py-2 text-base transition-all hover:bg-accent hover:text-accent-foreground",
+          active ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+        )}
+      >
+        <div className="w-6 h-6">{icon}</div>
+        {title}
+      </Link>
+    );
+  }
+
+  if (!isOpen) return null;
 
   return (
-    <aside 
-      className={cn(
-        "bg-sidebar h-screen border-r border-sidebar-border flex flex-col transition-all duration-300",
-        collapsed ? "w-16" : "w-64"
-      )}
-    >
-      <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-        {!collapsed && (
-          <div className="font-semibold text-lg text-sidebar-primary">
-            <Logo size="medium" />
+    <div className="fixed z-20 h-full w-64 border-r bg-background transition-all duration-300">
+      <ScrollArea className="h-full py-6">
+        <div className="px-3 py-2">
+          <h2 className="mb-6 px-4 text-lg font-semibold tracking-tight">
+            {userRole}
+          </h2>
+          <div className="space-y-1">
+            {navItems.map((item) => (
+              <SidebarItem
+                key={item.href}
+                href={item.href}
+                icon={item.icon}
+                title={item.title}
+                active={`/${currentPath}` === item.href}
+              />
+            ))}
           </div>
-        )}
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className={cn("text-sidebar-foreground", collapsed ? "mx-auto" : "")}
-          onClick={() => setCollapsed(!collapsed)}
-        >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </Button>
-      </div>
-      
-      <div className="flex-1 overflow-y-auto py-4">
-        {userRole && SIDEBAR_MENUS[userRole] && (
-          <NavSection title={userRole} items={SIDEBAR_MENUS[userRole]} isCollapsed={collapsed} />
-        )}
-      </div>
-      
-      <div className="border-t border-sidebar-border p-4">
-        {!collapsed && (
-          <div className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-full bg-sidebar-primary flex items-center justify-center text-white font-semibold">
-              {userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-sidebar-foreground">{userRole || 'User'}</p>
-              <p className="text-xs text-sidebar-foreground/60">{userEmail || 'user@example.com'}</p>
-            </div>
-          </div>
-        )}
-      </div>
-    </aside>
+        </div>
+      </ScrollArea>
+    </div>
   );
 }

@@ -1,18 +1,26 @@
 
-import React from 'react';
+import { ReactNode, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 
-export function MainLayout({ children }: { children: React.ReactNode }) {
+interface MainLayoutProps {
+  children: ReactNode;
+}
+
+export function MainLayout({ children }: MainLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-auto p-4 md:p-6">
-          <div className="mx-auto max-w-7xl animate-fade-in">
-            {children}
-          </div>
+    <div className="min-h-screen flex flex-col">
+      <Header toggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar isOpen={sidebarOpen} />
+        <main className={`flex-1 p-6 overflow-auto transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
+          {children}
         </main>
       </div>
     </div>
