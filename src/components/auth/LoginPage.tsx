@@ -14,11 +14,11 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Logo } from '@/components/common/Logo';
 import { useAuth } from '@/contexts/AuthContext';
+import axios from '@/api/axios';
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
-  role: z.enum(['Super Admin', 'Company Admin', 'Manager', 'Employee']),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -27,52 +27,60 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
       password: '',
-      role: 'Employee',
     },
   });
 
   const handleLogin = async (data: LoginFormValues) => {
     setIsLoading(true);
+    setError(null);
     try {
-      // In a real application with Supabase, we would make an API call to authenticate
-      // const { data: authData, error } = await supabase.auth.signInWithPassword({
-      //   email: data.email,
-      //   password: data.password,
-      // });
+      // Call login method from AuthContext
+      const result = await login(data.email, data.password);
       
-      // if (error) throw error;
-      
-      // For now we'll simulate a successful login
-      login(data.email, data.password, data.role);
-      
-      toast.success(`Logged in as ${data.role}`);
-      
-      // Redirect based on user role
-      switch (data.role) {
-        case 'Super Admin':
-          navigate('/super-admin');
-          break;
-        case 'Company Admin':
-          navigate('/company-admin');
-          break;
-        case 'Manager':
-          navigate('/manager-dashboard');
-          break;
-        case 'Employee':
-          navigate('/employee-dashboard');
-          break;
-        default:
+      if (result.success) {
+        toast.success('Logged in successfully');
+        
+        // Get the user role from localStorage
+        const role = localStorage.getItem('userRole');
+        console.log('User role after login:', role);
+        
+        // Use navigate for SPA navigation
+        if (role) {
+          switch (role.toLowerCase()) {
+            case 'super admin':
+              navigate('/super-admin');
+              break;
+            case 'company admin':
+              navigate('/company-admin');
+              break;
+            case 'manager':
+              navigate('/manager-dashboard');
+              break;
+            case 'employee':
+              navigate('/employee-dashboard');
+              break;
+            default:
+              navigate('/');
+          }
+        } else {
+          console.error('No user role found after login');
           navigate('/');
+        }
+      } else {
+        throw new Error(result.error || 'Login failed');
       }
     } catch (error) {
-      toast.error("Login failed. Please check your credentials.");
       console.error("Login error:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Login failed. Please check your credentials.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +97,6 @@ export default function LoginPage() {
           <div className="mx-auto w-fit">
             <Logo size="large" />
           </div>
-          <CardTitle className="text-3xl">HumanityHR</CardTitle>
           <CardDescription>Enter your credentials to access your account</CardDescription>
         </CardHeader>
         <CardContent>
@@ -134,32 +141,9 @@ export default function LoginPage() {
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Login as</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Super Admin">Super Admin</SelectItem>
-                        <SelectItem value="Company Admin">Company Admin</SelectItem>
-                        <SelectItem value="Manager">Manager</SelectItem>
-                        <SelectItem value="Employee">Employee</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {error && (
+                <div className="text-sm text-destructive">{error}</div>
+              )}
               
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Logging in..." : "Log in"}

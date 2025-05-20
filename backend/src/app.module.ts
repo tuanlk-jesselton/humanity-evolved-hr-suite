@@ -1,83 +1,45 @@
-/* eslint-disable prettier/prettier */
+
 import { Module } from '@nestjs/common';
-import { CoreHrModule } from './modules/core-hr/core-hr.module';
-import { ComplianceModule } from './modules/compliance/compliance.module';
-import { PayrollModule } from './modules/payroll/payroll.module';
-import { AnalyticsModule } from './modules/analytics/analytics.module';
-import { AttendanceModule } from './modules/attendance/attendance.module';
-import { ClaimsModule } from './modules/claims/claims.module';
-import { EmployeeSelfServiceModule } from './modules/employee-self-service/employee-self-service.module';
-import { IntegrationsModule } from './modules/integrations/integrations.module';
-import { LeaveManagementModule } from './modules/leave-management/leave-management.module';
-import { LocalisationModule } from './modules/localisation/localisation.module';
-import { ManagerSelfServiceModule } from './modules/manager-self-service/manager-self-service.module';
-import { OffboardingModule } from './modules/offboarding/offboarding.module';
-import { OnboardingModule } from './modules/onboarding/onboarding.module';
-import { PerformanceModule } from './modules/performance/performance.module';
-import { SecurityModule } from './modules/security/security.module';
-import { SubscriptionModule } from './modules/subscription/subscription.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuthModule } from './modules/auth/auth.module';
-
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Employee } from './modules/core-hr/entities/employee.entity';
-import { Department } from './modules/core-hr/entities/department.entity';
-import { EmployeeDocument } from './modules/core-hr/entities/employee-document.entity';
-import { CustomField } from './modules/core-hr/entities/custom-field.entity';
-import { EmployeeCustomFieldValue } from './modules/core-hr/entities/employee-custom-field-value.entity';
-import { Organization } from './modules/core-hr/entities/organization.entity';
-import { Goal } from './modules/performance/entities/goal.entity';
-import { PerformanceReview } from './modules/performance/entities/performance-review.entity';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { CompaniesModule } from './companies/companies.module';
+import { EmployeesModule } from './employees/employees.module';
+import { PayrollModule } from './payroll/payroll.module';
+import { LeaveModule } from './leave/leave.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: 'postgres-667463e91a05-public.rds-pg.bytepluses.com',
-      port: 5432,
-      username: 'hrmonster',
-      password: '@Jesselton2025',
-      database: 'dev',
-      entities: [
-        Employee,
-        Department,
-        EmployeeDocument,
-        CustomField,
-        EmployeeCustomFieldValue,
-        Organization,
-        Goal,
-        PerformanceReview
-      ],
-      synchronize: false, // Tạm thời tắt đồng bộ để revert migration an toàn
-      migrationsRun: true,
-      
+    ConfigModule.forRoot({
+      isGlobal: true,
     }),
-    CoreHrModule,
-    ComplianceModule,
-    PayrollModule,
-    AnalyticsModule,
-    AttendanceModule,
-    ClaimsModule,
-    EmployeeSelfServiceModule,
-    IntegrationsModule,
-    LeaveManagementModule,
-    LocalisationModule,
-    ManagerSelfServiceModule,
-    OffboardingModule,
-    OnboardingModule,
-    PerformanceModule,
-    SecurityModule,
-    SubscriptionModule,
-    TypeOrmModule.forFeature([
-      Employee,
-      Department,
-      EmployeeDocument,
-      CustomField,
-      EmployeeCustomFieldValue,
-      Organization
-    ]),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get('DB_HOST', 'localhost'),
+        port: configService.get<number>('DB_PORT', 5432),
+        username: configService.get('DB_USERNAME', 'postgres'),
+        password: configService.get('DB_PASSWORD', 'postgres'),
+        database: configService.get('DB_DATABASE', 'test'),
+        schema: configService.get('DB_SCHEMA', 'public'),
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        synchronize: configService.get('NODE_ENV') !== 'production',
+        logging: configService.get('NODE_ENV') !== 'production',
+      }),
+    }),
     AuthModule,
+    UsersModule,
+    CompaniesModule,
+    EmployeesModule,
+    PayrollModule,
+    LeaveModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

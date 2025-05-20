@@ -13,7 +13,12 @@ import {
   Globe,
   Bell,
   Database,
-  Server
+  Server,
+  AlertTriangle,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  AlertOctagon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
@@ -27,87 +32,180 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { dashboardApi, type PlatformStat, type Company, type SystemAlert } from '../../api/dashboard';
+import { formatDistanceToNow } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Dummy data for platform statistics
-const platformStats = [
-  { title: "Total Companies", value: "24", change: "+3", changeType: "positive" },
-  { title: "Total Users", value: "1,257", change: "+42", changeType: "positive" },
-  { title: "Active Subscriptions", value: "22", change: "+1", changeType: "positive" },
-  { title: "System Health", value: "99.8%", change: "+0.2%", changeType: "positive" }
-];
+// Skeleton loaders
+const StatCardSkeleton = () => (
+  <Card>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-4 w-4" />
+    </CardHeader>
+    <CardContent>
+      <Skeleton className="h-8 w-16 mb-2" />
+      <Skeleton className="h-4 w-32" />
+    </CardContent>
+  </Card>
+);
 
-// Dummy data for companies
-const companies = [
-  { id: 1, name: "TechCorp Inc.", employees: 253, subscription: "Enterprise", status: "Active" },
-  { id: 2, name: "Global Marketing Ltd.", employees: 87, subscription: "Professional", status: "Active" },
-  { id: 3, name: "Innovative Solutions", employees: 124, subscription: "Professional", status: "Active" },
-  { id: 4, name: "Startup Ventures", employees: 32, subscription: "Basic", status: "Trial" },
-  { id: 5, name: "Creative Agency", employees: 45, subscription: "Professional", status: "Overdue" },
-];
+const TableSkeleton = ({ rows = 5 }: { rows?: number }) => (
+  <div className="space-y-4">
+    {Array.from({ length: rows }).map((_, i) => (
+      <Skeleton key={i} className="h-12 w-full" />
+    ))}
+  </div>
+);
 
-// Dummy data for system alerts
-const systemAlerts = [
-  { id: 1, type: "Database", message: "Database backup completed successfully", level: "info", time: "2 hours ago" },
-  { id: 2, type: "Security", message: "Failed login attempts detected from IP 192.168.1.245", level: "warning", time: "4 hours ago" },
-  { id: 3, type: "Performance", message: "API response time increased by 15%", level: "warning", time: "1 day ago" },
-  { id: 4, type: "System", message: "Scheduled maintenance completed", level: "info", time: "2 days ago" },
-];
+const getStatusBadge = (status: string) => {
+  switch (status.toLowerCase()) {
+    case 'active':
+      return <Badge variant="default">Active</Badge>;
+    case 'inactive':
+      return <Badge variant="secondary">Inactive</Badge>;
+    case 'trial':
+      return <Badge variant="outline">Trial</Badge>;
+    case 'overdue':
+      return <Badge variant="destructive">Overdue</Badge>;
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
+};
 
-export function SuperAdminDashboard() {
+const getAlertIcon = (type: string) => {
+  switch (type.toLowerCase()) {
+    case 'error':
+      return <AlertCircle className="h-4 w-4 text-red-500" />;
+    case 'warning':
+      return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+    case 'success':
+      return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+    default:
+      return <AlertOctagon className="h-4 w-4 text-blue-500" />;
+  }
+};
+
+function SuperAdminDashboard() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Fetch data using React Query with error handling
+  const { data: platformStats, isLoading: isLoadingStats, error: statsError } = useQuery<PlatformStat[]>({
+    queryKey: ['dashboard', 'stats'],
+    queryFn: dashboardApi.getPlatformStats,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: companies, isLoading: isLoadingCompanies, error: companiesError } = useQuery<Company[]>({
+    queryKey: ['dashboard', 'companies'],
+    queryFn: dashboardApi.getCompanies,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: systemAlerts, isLoading: isLoadingAlerts, error: alertsError } = useQuery<SystemAlert[]>({
+    queryKey: ['dashboard', 'alerts'],
+    queryFn: dashboardApi.getSystemAlerts,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
+  // Handle errors
+  const hasError = statsError || companiesError || alertsError;
+  if (hasError) {
+    console.error('Dashboard errors:', { statsError, companiesError, alertsError });
+  }
+
+  if (isLoadingStats || isLoadingCompanies || isLoadingAlerts) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (statsError || companiesError || alertsError) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Error loading dashboard data</h2>
+          <p className="text-muted-foreground">
+            {statsError?.message || companiesError?.message || alertsError?.message}
+          </p>
+          <Button className="mt-4" onClick={() => window.location.reload()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Platform Administration</h1>
         <p className="text-muted-foreground">
-          Manage the HumanityHR platform
+          Manage the HR Monster platform
         </p>
       </div>
-      
+
       {/* Platform Statistics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {platformStats.map((stat, index) => (
-          <Card key={index}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              {index === 0 ? <Building className="h-4 w-4 text-muted-foreground" /> :
-               index === 1 ? <Users className="h-4 w-4 text-muted-foreground" /> :
-               index === 2 ? <TrendingUp className="h-4 w-4 text-muted-foreground" /> :
-               <Server className="h-4 w-4 text-muted-foreground" />}
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <div className={`text-xs flex items-center ${
-                stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {stat.changeType === 'positive' ? 
-                  <TrendingUp className="h-3 w-3 mr-1" /> : 
-                  <TrendingUp className="h-3 w-3 mr-1 transform rotate-180" />
-                }
-                {stat.change} last 30 days
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {isLoadingStats ? (
+          // Show skeleton loaders while loading
+          Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+        ) : statsError ? (
+          // Show error message if stats failed to load
+          <div className="col-span-4 p-4 text-center text-destructive">
+            <AlertCircle className="mx-auto h-6 w-6 mb-2" />
+            <p>Failed to load platform statistics. Please try again later.</p>
+          </div>
+        ) : (
+          // Show actual stats
+          platformStats?.map((stat, index) => (
+            <Card key={index}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                <div className="h-4 w-4 text-muted-foreground">
+                  {stat.title === 'Total Companies' && <Building className="h-4 w-4" />}
+                  {stat.title === 'Active Users' && <Users className="h-4 w-4" />}
+                  {stat.title === 'Active Subscriptions' && <BarChart3 className="h-4 w-4" />}
+                  {stat.title === 'Monthly Revenue' && <TrendingUp className="h-4 w-4" />}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+                <p className="text-xs text-muted-foreground">
+                  {stat.change} from last month
+                </p>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
-      
+
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-3">
         <Button className="h-auto py-4 flex flex-col items-center justify-center gap-2" variant="outline">
           <Building className="h-6 w-6" />
           <span>Add Company</span>
         </Button>
-        
+
         <Button className="h-auto py-4 flex flex-col items-center justify-center gap-2" variant="outline">
           <Settings className="h-6 w-6" />
           <span>Platform Settings</span>
         </Button>
-        
+
         <Button className="h-auto py-4 flex flex-col items-center justify-center gap-2" variant="outline">
           <Database className="h-6 w-6" />
           <span>Database Management</span>
         </Button>
       </div>
-      
+
       {/* Main Content */}
       <Tabs defaultValue="companies" className="w-full">
         <TabsList>
@@ -124,55 +222,55 @@ export function SuperAdminDashboard() {
             Subscriptions
           </TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="companies" className="pt-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Companies</CardTitle>
-                <CardDescription>Manage all companies on the platform</CardDescription>
-              </div>
-              <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Company
-              </Button>
-            </CardHeader>
-            <CardContent>
+
+        <TabsContent value="companies" className="space-y-4">
+          {isLoadingCompanies ? (
+            <TableSkeleton rows={5} />
+          ) : companiesError ? (
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 p-4 text-center text-destructive">
+              <AlertCircle className="mx-auto h-6 w-6 mb-2" />
+              <p>Failed to load companies. Please try again later.</p>
+            </div>
+          ) : (
+            <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Company</TableHead>
-                    <TableHead>Employees</TableHead>
-                    <TableHead>Subscription</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Subscription</TableHead>
+                    <TableHead>Users</TableHead>
+                    <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {companies.map((company) => (
-                    <TableRow key={company.id}>
-                      <TableCell className="font-medium">{company.name}</TableCell>
-                      <TableCell>{company.employees}</TableCell>
-                      <TableCell>{company.subscription}</TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          company.status === 'Active' ? 'default' :
-                          company.status === 'Trial' ? 'secondary' : 'destructive'
-                        }>
-                          {company.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm">Manage</Button>
+                  {companies?.length ? (
+                    companies.map((company) => (
+                      <TableRow key={company.id}>
+                        <TableCell className="font-medium">{company.name}</TableCell>
+                        <TableCell>{getStatusBadge('active')}</TableCell>
+                        <TableCell>Premium</TableCell>
+                        <TableCell>24/50</TableCell>
+                        <TableCell>{formatDistanceToNow(new Date(company.created_at), { addSuffix: true })}</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm">View</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        No companies found
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </TabsContent>
-        
+
         <TabsContent value="system" className="space-y-4 pt-4">
           <Card>
             <CardHeader>
@@ -180,28 +278,44 @@ export function SuperAdminDashboard() {
               <CardDescription>Recent system events and alerts</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {systemAlerts.map((alert) => (
-                  <div 
-                    key={alert.id} 
-                    className="flex items-start justify-between border-b pb-4 last:border-0 last:pb-0"
-                  >
-                    <div>
-                      <div className="font-medium">{alert.type}</div>
-                      <div className="text-sm text-muted-foreground">{alert.message}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{alert.time}</div>
+              {isLoadingAlerts ? (
+                <div className="space-y-4">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-24 w-full rounded-lg" />
+                  ))}
+                </div>
+              ) : alertsError ? (
+                <div className="rounded-md border border-destructive/20 bg-destructive/5 p-4 text-center text-destructive">
+                  <AlertCircle className="mx-auto h-6 w-6 mb-2" />
+                  <p>Failed to load system alerts. Please try again later.</p>
+                </div>
+              ) : systemAlerts?.length ? (
+                <div className="space-y-4">
+                  {systemAlerts.map((alert, index) => (
+                    <div key={index} className="flex items-start p-4 border rounded-lg">
+                      <div className="flex-shrink-0 mt-1">
+                        {getAlertIcon(alert.type)}
+                      </div>
+                      <div className="ml-4 flex-1">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-medium">{alert.type}</h4>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">{alert.message}</p>
+                      </div>
                     </div>
-                    <div>
-                      <Badge variant={alert.level === 'warning' ? 'destructive' : 'secondary'}>
-                        {alert.level}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No system alerts at this time.
+                </div>
+              )}
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle>System Resources</CardTitle>
@@ -289,3 +403,5 @@ export function SuperAdminDashboard() {
     </div>
   );
 }
+
+export default SuperAdminDashboard;

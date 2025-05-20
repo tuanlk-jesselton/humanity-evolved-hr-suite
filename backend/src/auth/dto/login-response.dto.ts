@@ -1,33 +1,44 @@
+
 import { ApiProperty } from '@nestjs/swagger';
 
-class UserResponseDto {
-  @ApiProperty({ description: 'User ID', example: 1 })
-  id!: number;
+class UserDto {
+  @ApiProperty({
+    example: 1,
+    description: 'The ID of the user',
+  })
+  id: number;
 
-  @ApiProperty({ description: 'User email', example: 'user@example.com' })
-  email!: string;
+  @ApiProperty({
+    example: 'user@example.com',
+    description: 'The email of the user',
+  })
+  email: string;
 
-  @ApiProperty({ description: 'User full name', example: 'John Doe' })
-  full_name!: string;
+  @ApiProperty({
+    example: 'John Doe',
+    description: 'The full name of the user',
+  })
+  full_name: string;
 }
 
 export class LoginResponseDto {
-  @ApiProperty({ 
-    description: 'JWT access token',
+  @ApiProperty({
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    description: 'JWT token for authentication',
   })
-  token!: string;
+  token: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'User information',
-    type: UserResponseDto,
+    type: UserDto,
   })
-  user!: UserResponseDto;
+  user: UserDto;
 
-  @ApiProperty({ 
+  @ApiProperty({
+    example: ['Employee', 'Manager'],
     description: 'User roles',
-    example: ['user', 'admin'],
-    type: [String],
+    isArray: true,
+    type: String,
   })
-  roles!: string[];
+  roles: string[];
 }

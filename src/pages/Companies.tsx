@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ const mockCompanies = [
     email: 'info@acme.com',
     owner: 'John Doe',
     employees: 120,
-    status: 'Active',
+    status: 'Active' as const,
     createdAt: '2023-01-10',
   },
   {
@@ -24,7 +25,7 @@ const mockCompanies = [
     email: 'contact@beta.com',
     owner: 'Jane Smith',
     employees: 80,
-    status: 'Inactive',
+    status: 'Inactive' as const,
     createdAt: '2022-10-03',
   },
   {
@@ -33,7 +34,7 @@ const mockCompanies = [
     email: 'admin@gamma.com',
     owner: 'Alice Brown',
     employees: 45,
-    status: 'Active',
+    status: 'Active' as const,
     createdAt: '2024-02-18',
   },
 ];
@@ -96,17 +97,17 @@ export default function Companies() {
   const pagedCompanies = filtered.slice((page-1)*pageSize, page*pageSize);
 
   // Action handlers
-  const handleAction = (company: any, act: 'delete'|'lock'|'unlock') => {
+  const handleAction = (company: Company, act: 'delete'|'lock'|'unlock') => {
     setSelectedCompany(company);
     setAction(act);
     setShowDialog(true);
   };
   const confirmAction = () => {
-    if (action === 'delete') {
+    if (action === 'delete' && selectedCompany) {
       setCompanies(companies.filter(c => c.id !== selectedCompany.id));
-    } else if (action === 'lock') {
+    } else if (action === 'lock' && selectedCompany) {
       setCompanies(companies.map(c => c.id === selectedCompany.id ? { ...c, status: 'Inactive' } : c));
-    } else if (action === 'unlock') {
+    } else if (action === 'unlock' && selectedCompany) {
       setCompanies(companies.map(c => c.id === selectedCompany.id ? { ...c, status: 'Active' } : c));
     }
     setShowDialog(false);
@@ -115,23 +116,23 @@ export default function Companies() {
   };
   // Add company
   const handleAddCompany = () => {
-    setCompanies([
-      ...companies,
-      {
-        ...newCompany,
-        id: (Math.random()*100000).toFixed(0),
-        status: 'Active',
-        createdAt: new Date().toISOString().slice(0,10),
-      },
-    ]);
+    const newCompanyWithStatus: Company = {
+      ...newCompany,
+      id: (Math.random()*100000).toFixed(0),
+      status: 'Active',
+      createdAt: new Date().toISOString().slice(0,10),
+    };
+    setCompanies([...companies, newCompanyWithStatus]);
     setShowAddDialog(false);
     setNewCompany({ name: '', email: '', owner: '', employees: 0 });
   };
   // Edit company
   const handleEditCompany = () => {
-    setCompanies(companies.map(c => c.id === editCompany.id ? { ...editCompany } : c));
-    setShowEditDialog(false);
-    setEditCompany(null);
+    if (editCompany) {
+      setCompanies(companies.map(c => c.id === editCompany.id ? { ...editCompany } : c));
+      setShowEditDialog(false);
+      setEditCompany(null);
+    }
   };
 
   return (
@@ -202,7 +203,7 @@ export default function Companies() {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-2 py-2"><input type="checkbox" title="Select all" /></th>
+                <th className="px-2 py-2"><input type="checkbox" /></th>
                 <th className="px-4 py-2 font-semibold text-left">Name</th>
                 <th className="px-4 py-2 font-semibold text-left">Email</th>
                 <th className="px-4 py-2 font-semibold text-left">Owner</th>
@@ -222,10 +223,10 @@ export default function Companies() {
               )}
               {pagedCompanies.map(company => (
                 <tr key={company.id} className="border-b hover:bg-gray-50">
-                  <td className="px-2 py-2"><input type="checkbox" title="Select row" /></td>
+                  <td className="px-2 py-2"><input type="checkbox" /></td>
                   <td className="px-4 py-2 font-medium flex items-center gap-2">
                     {company.name}
-                    {company.complianceStatus === 'Warning' && <AlertTriangle size={14} className="text-yellow-500" title="Compliance warning" />}
+                    {company.complianceStatus === 'Warning' && <AlertTriangle size={14} className="text-yellow-500" />}
                     {company.createdAt === new Date().toISOString().slice(0,10) && <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">New</span>}
                   </td>
                   <td className="px-4 py-2">{company.email}</td>
@@ -247,17 +248,17 @@ export default function Companies() {
                   <td className="px-4 py-2 text-center">{company.createdAt}</td>
                   <td className="px-4 py-2 text-center">
                     <div className="flex gap-2 justify-center">
-                      <Button size="icon" variant="ghost" title="View company details" onClick={() => { setSelectedCompany(company); setShowDetailDialog(true); }}><Eye size={16}/></Button>
+                      <Button size="icon" variant="ghost" onClick={() => { setSelectedCompany(company); setShowDetailDialog(true); }}><Eye size={16}/></Button>
                       {userRole === 'Super Admin' && (
                         <>
-                          <Button size="icon" variant="ghost" title="Edit company" onClick={() => { setEditCompany(company); setShowEditDialog(true); }}><Edit size={16}/></Button>
-                          <Button size="icon" variant="ghost" title="Resend Invite" onClick={() => alert('Resend invite mock!')}><RefreshCw size={16}/></Button>
+                          <Button size="icon" variant="ghost" onClick={() => { setEditCompany(company); setShowEditDialog(true); }}><Edit size={16}/></Button>
+                          <Button size="icon" variant="ghost" onClick={() => alert('Resend invite mock!')}><RefreshCw size={16}/></Button>
                           {company.status === 'Active' ? (
-                            <Button size="icon" variant="ghost" title="Lock company" onClick={() => handleAction(company, 'lock')}><Lock size={16}/></Button>
+                            <Button size="icon" variant="ghost" onClick={() => handleAction(company, 'lock')}><Lock size={16}/></Button>
                           ) : (
-                            <Button size="icon" variant="ghost" title="Unlock company" onClick={() => handleAction(company, 'unlock')}><Unlock size={16}/></Button>
+                            <Button size="icon" variant="ghost" onClick={() => handleAction(company, 'unlock')}><Unlock size={16}/></Button>
                           )}
-                          <Button size="icon" variant="ghost" title="Delete company" onClick={() => handleAction(company, 'delete')}><Trash size={16}/></Button>
+                          <Button size="icon" variant="ghost" onClick={() => handleAction(company, 'delete')}><Trash size={16}/></Button>
                         </>
                       )}
                     </div>

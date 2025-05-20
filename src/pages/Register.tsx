@@ -94,7 +94,7 @@ export default function Register() {
       
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-3xl">HumanityHR</CardTitle>
+          <CardTitle className="text-3xl">HR Monster</CardTitle>
           <CardDescription>Create your company account</CardDescription>
           <div className="flex justify-center space-x-2 pt-4">
             <div className={`w-3 h-3 rounded-full ${step >= 1 ? 'bg-primary' : 'bg-muted'}`}></div>

@@ -31,19 +31,23 @@ import SuperAdmin from "./pages/SuperAdmin";
 import CompanyAdmin from "./pages/CompanyAdmin";
 import ManagerDashboardPage from "./pages/ManagerDashboard";
 import EmployeeDashboardPage from "./pages/EmployeeDashboard";
+import UserManagement from "./pages/UserManagement";
+import SystemSettings from "./pages/SystemSettings";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
+const App = () => {
+  // Move providers here to ensure they're only mounted once
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
         <BrowserRouter>
-          <Routes>
+          <AuthProvider>
+            <Toaster />
+            <Sonner />
+            <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<Register />} />
@@ -80,6 +84,19 @@ const App = () => (
               </ProtectedRoute>
             } />
             
+            {/* Admin Routes */}
+            <Route path="/user-management" element={
+              <ProtectedRoute allowedRoles={['Super Admin', 'Company Admin']}>
+                <UserManagement />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/system-settings" element={
+              <ProtectedRoute allowedRoles={['Super Admin']}>
+                <SystemSettings />
+              </ProtectedRoute>
+            } />
+            
             {/* Common App Routes Protected By Authentication */}
             <Route element={<ProtectedRoute allowedRoles={['Super Admin', 'Company Admin', 'Manager', 'Employee']} />}>
               <Route path="/" element={<Index />} />
@@ -111,10 +128,11 @@ const App = () => (
             {/* Catch-all for 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+        </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+  );
+};
 
 export default App;

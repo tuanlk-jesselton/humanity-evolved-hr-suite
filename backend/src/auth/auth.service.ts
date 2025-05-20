@@ -1,99 +1,193 @@
-import { 
-  Injectable, 
-  UnauthorizedException, 
-  Logger, 
-  Inject, 
-  forwardRef,
-  HttpStatus,
-  HttpException
-} from '@nestjs/common';
+
+import { Injectable, Logger, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
-import { User, Role, UserRole } from './entities';
+import { Repository, FindOptionsWhere } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { User, Role, UserRole } from './entities';
+import { LoginDto, RegisterDto } from './dto';
+import { JwtPayload } from './interfaces';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    @InjectRepository(User) 
-    private readonly userRepo: Repository<User>,
-    
-    @InjectRepository(UserRole) 
-    private readonly userRoleRepo: Repository<UserRole>,
-    
-    @InjectRepository(Role) 
-    private readonly roleRepo: Repository<Role>,
-    
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
+    @InjectRepository(Role)
+    private readonly rolesRepository: Repository<Role>,
+    @InjectRepository(UserRole)
+    private readonly userRolesRepository: Repository<UserRole>,
     private readonly jwtService: JwtService,
   ) {}
 
-  async login(email: string, password: string) {
+  async validateUser(email: string, password: string): Promise<Omit<User, 'passwordHash'>> {
     try {
-      // 1. Tìm user theo email
-      const user = await this.userRepo.findOne({ 
-        where: { email },
-        select: ['id', 'email', 'password_hash', 'full_name', 'is_active']
-      });
-
-      // 2. Kiểm tra user tồn tại
+      const user = await this.usersRepository.findOne({ where: { email } });
       if (!user) {
-        this.logger.warn(`Login failed: User with email ${email} not found`);
-        throw new UnauthorizedException('Invalid email or password');
+        throw new UnauthorizedException('Invalid credentials');
       }
 
-      // 3. Kiểm tra trạng thái tài khoản
-      if (!user.is_active) {
-        this.logger.warn(`Login failed: User ${email} is inactive`);
-        throw new UnauthorizedException('Account is inactive');
-      }
+      const isPasswordValid = await bcrypt.compare(
+        password,
+        user.passwordHash || '',
+      );
 
-      // 4. Kiểm tra mật khẩu
-      if (!user.password_hash) {
-        this.logger.warn(`Login failed: User ${email} does not have a password set`);
-        throw new UnauthorizedException('Invalid email or password');
-      }
-      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
       if (!isPasswordValid) {
-        this.logger.warn(`Login failed: Invalid password for user ${email}`);
-        throw new UnauthorizedException('Invalid email or password');
+        throw new UnauthorizedException('Invalid credentials');
       }
 
-      // 5. Lấy danh sách roles của user
-      const userRoles = await this.userRoleRepo.find({ 
-        where: { user_id: user.id },
-        relations: ['role']
-      });
+      const { passwordHash, ...result } = user;
+      return result as Omit<User, 'passwordHash'>;
+    } catch (error) {
+      this.logger.error(`Error validating user: ${error.message}`);
+      throw error;
+    }
+  }
 
-      const roles = userRoles.map(ur => ur.role.name);
-
-      // 6. Tạo JWT token
+  async login(email: string, password: string): Promise<{ token: string; user: { id: number; email: string; fullName: string | null }; roles: string[] }> {
+    try {
+      const user = await this.validateUser(email, password);
+      
+      // Get user roles
+      const userRoles = await this.getUserRoles(user.id);
+      
       const payload: JwtPayload = {
         sub: user.id,
         email: user.email,
-        roles: roles,
+        roles: userRoles,
       };
-      
-      const token = this.jwtService.sign(payload);
 
-      // 7. Trả về thông tin user và token
       return {
-        token,
+        token: this.jwtService.sign(payload),
         user: {
           id: user.id,
           email: user.email,
-          full_name: user.full_name,
+          fullName: user.fullName,
         },
-        roles,
+        roles: userRoles,
       };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Login error: ${errorMessage}`, errorStack);
-      throw error; // Re-throw để xử lý ở controller
+    } catch (error) {
+      this.logger.error(`Error during login: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async register(registerDto: RegisterDto): Promise<Omit<User, 'passwordHash'> & { roles: string[] }> {
+    const { email, password, full_name, company_id } = registerDto;
+    
+    try {
+      // Check if email is already taken
+      const existingUser = await this.usersRepository.findOne({ where: { email } });
+      if (existingUser) {
+        throw new ConflictException('Email already exists');
+      }
+      
+      // Hash the password
+      const passwordHash = await bcrypt.hash(password, 10);
+      
+      // Create the user
+      const newUser = this.usersRepository.create({
+        email,
+        passwordHash,
+        fullName: full_name,
+        companyId: company_id,
+        isActive: true,
+      } as User);
+      
+      const savedUser = await this.usersRepository.save(newUser);
+      
+      // Assign default 'Employee' role
+      const employeeRole = await this.rolesRepository.findOne({ where: { name: 'Employee' } });
+      
+      if (!employeeRole) {
+        this.logger.warn('Employee role not found. Creating new role.');
+        const role = this.rolesRepository.create({
+          name: 'Employee',
+          description: 'Regular employee with basic access'
+        });
+        const savedRole = await this.rolesRepository.save(role);
+        
+        const userRole = this.userRolesRepository.create({
+          userId: savedUser.id,
+          roleId: savedRole.id,
+        });
+        await this.userRolesRepository.save(userRole);
+      } else {
+        const userRole = this.userRolesRepository.create({
+          userId: savedUser.id as number,
+          roleId: employeeRole.id,
+        } as UserRole);
+        await this.userRolesRepository.save(userRole);
+      }
+      
+      // Return user without password
+      const { passwordHash: _, ...result } = savedUser;
+      return {
+        ...result,
+        roles: ['Employee'],
+      };
+    } catch (error) {
+      this.logger.error(`Error during registration: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async getUserRoles(userId: number): Promise<string[]> {
+    try {
+      const userRoles = await this.userRolesRepository.find({
+        where: { userId },
+        relations: ['role'],
+      });
+
+      return userRoles.map((userRole) => userRole.role.name);
+    } catch (error) {
+      this.logger.error(`Error getting user roles: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async getUserFromToken(token: string): Promise<Omit<User, 'passwordHash'>> {
+    try {
+      const decoded = this.jwtService.verify(token);
+      const user = await this.usersRepository.findOne({
+        where: { id: decoded.sub },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      const { passwordHash, ...result } = user;
+      return result as Omit<User, 'passwordHash'>;
+    } catch (error) {
+      this.logger.error(`Error getting user from token: ${error.message}`);
+      throw new UnauthorizedException('Invalid token');
+    }
+  }
+
+  async getUserInfo(userId: number): Promise<Omit<User, 'passwordHash'> & { roles: string[] }> {
+    try {
+      const user = await this.usersRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const userRoles = await this.getUserRoles(userId);
+
+      const { passwordHash, ...userInfo } = user;
+      
+      return {
+        ...userInfo,
+        roles: userRoles,
+      } as Omit<User, 'passwordHash'> & { roles: string[] };
+    } catch (error) {
+      this.logger.error(`Error getting user info: ${error.message}`);
+      throw error;
     }
   }
 }

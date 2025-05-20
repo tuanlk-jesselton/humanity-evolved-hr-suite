@@ -1,3 +1,4 @@
+
 import { 
   Controller, 
   Post, 
@@ -8,7 +9,10 @@ import {
   ValidationPipe,
   UnauthorizedException,
   BadRequestException,
-  Logger
+  Logger,
+  Get,
+  UseGuards,
+  Req
 } from '@nestjs/common';
 import { 
   ApiTags, 
@@ -16,10 +20,12 @@ import {
   ApiResponse, 
   ApiBody, 
   ApiUnauthorizedResponse,
-  ApiBadRequestResponse
+  ApiBadRequestResponse,
+  ApiBearerAuth
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto, LoginResponseDto } from './dto';
+import { LoginDto, LoginResponseDto, RegisterDto } from './dto';
+import { JwtAuthGuard } from './guards';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -72,6 +78,62 @@ export class AuthController {
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Login failed: ${errorMessage}`, errorStack);
       throw new UnauthorizedException('Invalid email or password');
+    }
+  }
+
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  @ApiOperation({ 
+    summary: 'User registration',
+    description: 'Register a new user',
+  })
+  @ApiBody({ type: RegisterDto })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'User created successfully',
+  })
+  @ApiBadRequestResponse({
+    description: 'Validation error or email already exists',
+  })
+  async register(@Body() registerDto: RegisterDto) {
+    try {
+      return await this.authService.register(registerDto);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Registration failed: ${errorMessage}`, errorStack);
+      
+      if (errorMessage.includes('already exists')) {
+        throw new BadRequestException('Email already exists');
+      }
+      
+      throw new BadRequestException('Registration failed');
+    }
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ 
+    summary: 'Get current user info',
+    description: 'Get information about the currently authenticated user',
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'User information retrieved successfully',
+  })
+  @ApiUnauthorizedResponse({ 
+    description: 'Unauthorized - Valid JWT token required',
+  })
+  async getCurrentUser(@Req() req) {
+    try {
+      const userId = req.user.sub;
+      const userInfo = await this.authService.getUserInfo(userId);
+      return userInfo;
+    } catch (error) {
+      this.logger.error(`Error retrieving current user: ${error.message}`);
+      throw error;
     }
   }
 }

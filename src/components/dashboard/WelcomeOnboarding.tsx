@@ -47,7 +47,7 @@ export function WelcomeOnboarding() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-xl">Welcome to HumanityHR!</CardTitle>
+        <CardTitle className="text-xl">Welcome to HR Monster!</CardTitle>
         <CardDescription>Complete these tasks to set up your account</CardDescription>
       </CardHeader>
       <CardContent>

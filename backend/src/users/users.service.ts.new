@@ -1,0 +1,548 @@
+import { 
+  Injectable, 
+  Logger, 
+  HttpException, 
+  HttpStatus, 
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  ForbiddenException,
+  InternalServerErrorException
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In, QueryRunner } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+import { User, Role, UserRole } from '../auth/entities';
+import { CreateUserDto, UpdateUserDto } from './dto';
+import { UserResponseDto, UserRoleResponseDto } from './dto/user-response.dto';
+
+// Interface for current user in requests
+export interface CurrentUser {
+  id: number;
+  email: string;
+  companyId?: number;
+  roles: string[];
+}
+
+// Interface for pagination options
+interface PaginationOptions {
+  companyId?: number;
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+// Interface for paginated results
+interface PaginatedResult<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+@Injectable()
+export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
+  constructor(
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
+    @InjectRepository(Role)
+    private rolesRepository: Repository<Role>,
+    @InjectRepository(UserRole)
+    private userRolesRepository: Repository<UserRole>,
+  ) {}
+
+  /**
+   * Find all users with pagination and filtering
+   * @param options Pagination and filtering options
+   * @param currentUser Current authenticated user for permission checks
+   * @returns Paginated list of users with their roles
+   */
+  async findAll(
+    options: PaginationOptions = {},
+    currentUser?: CurrentUser
+  ): Promise<PaginatedResult<UserResponseDto>> {
+    try {
+      const { companyId, page = 1, limit = 10, search } = options;
+      const skip = (page - 1) * limit;
+      
+      // Only allow Super Admin to see all users across companies
+      const isSuperAdmin = currentUser?.roles?.includes('Super Admin');
+      let effectiveCompanyId = companyId;
+      
+      // If not super admin and no company ID, only show users from the same company
+      if (!isSuperAdmin && !companyId && currentUser?.companyId) {
+        effectiveCompanyId = currentUser.companyId;
+      }
+
+      const query = this.usersRepository
+        .createQueryBuilder('user')
+        .leftJoinAndSelect('user.userRoles', 'userRole')
+        .leftJoinAndSelect('userRole.role', 'role')
+        .leftJoinAndSelect('user.company', 'company');
+      
+      // Apply company filter if specified
+      if (effectiveCompanyId) {
+        query.andWhere('user.company_id = :companyId', { companyId: effectiveCompanyId });
+      }
+      
+      // Apply search filter if specified
+      if (search) {
+        query.andWhere(
+          '(user.email LIKE :search OR user.fullName LIKE :search OR user.phoneNumber LIKE :search)',
+          { search: `%${search}%` }
+        );
+      }
+      
+      // Only show active users by default
+      query.andWhere('user.isActive = :isActive', { isActive: true });
+      
+      // Get total count for pagination
+      const total = await query.getCount();
+      
+      // Apply pagination
+      const users = await query
+        .skip(skip)
+        .take(limit)
+        .orderBy('user.createdAt', 'DESC')
+        .getMany();
+      
+      // Calculate pagination metadata
+      const totalPages = Math.ceil(total / limit);
+      
+      return {
+        data: users.map(user => this.mapToUserResponseDto(user)),
+        meta: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error finding users: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to retrieve users');
+    }
+  }
+
+  /**
+   * Find a single user by ID
+   * @param id User ID
+   * @param currentUser Current authenticated user for permission checks
+   * @returns User details with roles
+   */
+  async findOne(id: number, currentUser?: CurrentUser): Promise<UserResponseDto> {
+    try {
+      const user = await this.usersRepository.findOne({
+        where: { id },
+        relations: ['userRoles', 'userRoles.role', 'company'],
+      });
+      
+      if (!user) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+
+      // Check permissions
+      this.checkUserAccess(user, currentUser);
+      
+      return this.mapToUserResponseDto(user);
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.logger.error(`Error finding user: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to retrieve user');
+    }
+  }
+
+  /**
+   * Create a new user
+   * @param createUserDto User data
+   * @param currentUser Current authenticated user for permission checks
+   * @returns Created user details
+   */
+  async create(createUserDto: CreateUserDto, currentUser?: CurrentUser): Promise<UserResponseDto> {
+    // Start a transaction
+    const queryRunner = this.usersRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Check if email is already in use
+      const existingUser = await this.usersRepository.findOne({
+        where: { email: createUserDto.email },
+        withDeleted: true, // Include soft-deleted users
+      });
+      
+      if (existingUser) {
+        throw new ConflictException('Email is already in use');
+      }
+
+      // Check permissions
+      this.checkUserCreationPermission(createUserDto, currentUser);
+      
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+      
+      // Create the user with camelCase properties to match the User entity
+      const newUser = this.usersRepository.create({
+        email: createUserDto.email,
+        passwordHash: hashedPassword,
+        fullName: createUserDto.full_name,
+        phoneNumber: createUserDto.phone_number,
+        position: createUserDto.position,
+        department: createUserDto.department,
+        isActive: createUserDto.is_active !== false, // Default to true if not specified
+        companyId: createUserDto.company_id,
+      });
+
+      // Save the user
+      const savedUser = await queryRunner.manager.save(newUser);
+
+      // Assign roles if provided
+      if (createUserDto.role_ids && createUserDto.role_ids.length > 0) {
+        const roles = await this.rolesRepository.find({
+          where: { id: In(createUserDto.role_ids) },
+        });
+
+        if (roles.length !== createUserDto.role_ids.length) {
+          throw new BadRequestException('One or more role IDs are invalid');
+        }
+
+        const userRoles = roles.map(role =>
+          this.userRolesRepository.create({
+            userId: savedUser.id,
+            roleId: role.id,
+          })
+        );
+
+        await queryRunner.manager.save(userRoles);
+      }
+
+      await queryRunner.commitTransaction();
+
+      // Fetch the user with relations to return
+      const createdUser = await this.usersRepository.findOne({
+        where: { id: savedUser.id },
+        relations: ['userRoles', 'userRoles.role', 'company'],
+      });
+
+      return this.mapToUserResponseDto(createdUser);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      
+      if (
+        error instanceof ConflictException ||
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      
+      this.logger.error(`Error creating user: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to create user');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Update an existing user
+   * @param id User ID
+   * @param updateUserDto User data to update
+   * @param currentUser Current authenticated user for permission checks
+   * @returns Updated user details
+   */
+  async update(
+    id: number,
+    updateUserDto: UpdateUserDto,
+    currentUser?: CurrentUser
+  ): Promise<UserResponseDto> {
+    // Start a transaction
+    const queryRunner = this.usersRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const user = await this.usersRepository.findOne({
+        where: { id },
+        relations: ['userRoles', 'userRoles.role', 'company'],
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+
+      // Check permissions
+      this.checkUserAccess(user, currentUser);
+
+      // Update user properties if provided
+      if (updateUserDto.email !== undefined) {
+        // Check if email is already in use by another user
+        if (updateUserDto.email !== user.email) {
+          const existingUser = await this.usersRepository.findOne({
+            where: { email: updateUserDto.email },
+            withDeleted: true,
+          });
+
+          if (existingUser) {
+            throw new ConflictException('Email is already in use');
+          }
+          user.email = updateUserDto.email;
+        }
+      }
+
+      if (updateUserDto.full_name !== undefined) {
+        user.fullName = updateUserDto.full_name;
+      }
+
+      if (updateUserDto.phone_number !== undefined) {
+        user.phoneNumber = updateUserDto.phone_number;
+      }
+
+      if (updateUserDto.position !== undefined) {
+        user.position = updateUserDto.position;
+      }
+
+      if (updateUserDto.department !== undefined) {
+        user.department = updateUserDto.department;
+      }
+
+      if (updateUserDto.is_active !== undefined) {
+        user.isActive = updateUserDto.is_active;
+      }
+
+      if (updateUserDto.company_id !== undefined) {
+        user.companyId = updateUserDto.company_id;
+      }
+
+      // Update password if provided
+      if (updateUserDto.password) {
+        user.passwordHash = await bcrypt.hash(updateUserDto.password, 10);
+      }
+
+      // Save the updated user
+      const updatedUser = await queryRunner.manager.save(user);
+
+      // Update roles if provided
+      if (updateUserDto.role_ids) {
+        // Remove existing user roles
+        await queryRunner.manager.delete(UserRole, { userId: user.id });
+
+        if (updateUserDto.role_ids.length > 0) {
+          const roles = await this.rolesRepository.find({
+            where: { id: In(updateUserDto.role_ids) },
+          });
+
+          if (roles.length !== updateUserDto.role_ids.length) {
+            throw new BadRequestException('One or more role IDs are invalid');
+          }
+
+          const userRoles = roles.map(role =>
+            this.userRolesRepository.create({
+              userId: user.id,
+              roleId: role.id,
+            })
+          );
+
+          await queryRunner.manager.save(userRoles);
+        }
+      }
+
+      await queryRunner.commitTransaction();
+
+      // Fetch the updated user with relations
+      const updatedUserWithRelations = await this.usersRepository.findOne({
+        where: { id: updatedUser.id },
+        relations: ['userRoles', 'userRoles.role', 'company'],
+      });
+
+      return this.mapToUserResponseDto(updatedUserWithRelations);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ConflictException ||
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      
+      this.logger.error(`Error updating user: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to update user');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Delete a user
+   * @param id User ID
+   * @param currentUser Current authenticated user for permission checks
+   */
+  async remove(id: number, currentUser?: CurrentUser): Promise<void> {
+    const queryRunner = this.usersRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const user = await this.usersRepository.findOne({
+        where: { id },
+        relations: ['userRoles', 'userRoles.role', 'company'],
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+
+      // Check permissions
+      this.checkUserAccess(user, currentUser);
+
+      // Soft delete the user
+      await queryRunner.manager.softDelete(User, { id: user.id });
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+        throw error;
+      }
+      
+      this.logger.error(`Error deleting user: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to delete user');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Map User entity to UserResponseDto
+   * @param user User entity
+   * @returns UserResponseDto
+   */
+  private mapToUserResponseDto(user: User): UserResponseDto {
+    const response = new UserResponseDto();
+    response.id = user.id;
+    response.email = user.email;
+    response.full_name = user.fullName || '';
+    response.phone_number = user.phoneNumber || '';
+    response.position = user.position || '';
+    response.department = user.department || '';
+    response.is_active = user.isActive !== false; // Default to true if not set
+    response.created_at = user.createdAt?.toISOString() || new Date().toISOString();
+    response.updated_at = user.updatedAt?.toISOString() || new Date().toISOString();
+    
+    // Map company if exists
+    if (user.company) {
+      response.company = {
+        id: user.company.id,
+        name: user.company.name || '',
+      };
+    }
+
+    // Map roles
+    if (user.userRoles && user.userRoles.length > 0) {
+      response.roles = user.userRoles.map(userRole => {
+        const roleDto = new UserRoleResponseDto();
+        roleDto.id = userRole.role.id;
+        roleDto.name = userRole.role.name;
+        roleDto.description = userRole.role.description || '';
+        return roleDto;
+      });
+    } else {
+      response.roles = [];
+    }
+
+    return response;
+  }
+
+  /**
+   * Check if the current user has permission to access the target user
+   * @param targetUser User to check access for
+   * @param currentUser Current authenticated user
+   */
+  private checkUserAccess(targetUser: User, currentUser?: CurrentUser): void {
+    if (!currentUser) {
+      throw new ForbiddenException('You must be logged in to access this resource');
+    }
+
+    const isSuperAdmin = currentUser.roles.includes('Super Admin');
+    const isCompanyAdmin = currentUser.roles.includes('Company Admin');
+    
+    // Super Admin can access any user
+    if (isSuperAdmin) {
+      return;
+    }
+
+    // Company Admin can access users in their company
+    if (isCompanyAdmin && currentUser.companyId === targetUser.companyId) {
+      return;
+    }
+
+    // Users can access their own profile
+    if (currentUser.id === targetUser.id) {
+      return;
+    }
+
+    throw new ForbiddenException('You do not have permission to access this user');
+  }
+
+  /**
+   * Check if the current user has permission to create a user with the given data
+   * @param createUserDto User data to be created
+   * @param currentUser Current authenticated user
+   */
+  private checkUserCreationPermission(
+    createUserDto: CreateUserDto,
+    currentUser?: CurrentUser
+  ): void {
+    if (!currentUser) {
+      throw new ForbiddenException('You must be logged in to create a user');
+    }
+
+    const isSuperAdmin = currentUser.roles.includes('Super Admin');
+    const isCompanyAdmin = currentUser.roles.includes('Company Admin');
+    
+    // Super Admin can create any user
+    if (isSuperAdmin) {
+      return;
+    }
+
+    // Company Admin can only create users in their company
+    if (isCompanyAdmin) {
+      if (!createUserDto.company_id) {
+        throw new BadRequestException('Company ID is required');
+      }
+
+      if (createUserDto.company_id !== currentUser.companyId) {
+        throw new ForbiddenException('You can only create users in your company');
+      }
+
+      // Check if trying to assign restricted roles
+      if (createUserDto.role_ids && createUserDto.role_ids.length > 0) {
+        return this.rolesRepository.find({
+          where: { id: In(createUserDto.role_ids) },
+        }).then(roles => {
+          const hasRestrictedRole = roles.some(role => 
+            role.name === 'Super Admin' || role.name === 'Company Admin'
+          );
+
+          if (hasRestrictedRole) {
+            throw new ForbiddenException('You cannot assign admin roles');
+          }
+        });
+      }
+      
+      return;
+    }
+
+    // Regular users cannot create other users
+    throw new ForbiddenException('You do not have permission to create users');
+  }
+}
