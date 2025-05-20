@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 // Phải import module-alias/register trước các imports khác
 import 'module-alias/register';
@@ -33,18 +34,22 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api');
   
-  // Enable CORS
+  // Enable CORS - Updated to include lovable.app domains
   app.enableCors({
     origin: [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:8080',
       'http://127.0.0.1:8080',
       'http://localhost:3001',
-      'http://127.0.0.1:3001'
+      'http://127.0.0.1:3001',
+      'https://lovable.app',
+      'https://*.lovable.app'  // Allow all subdomains of lovable.app
     ],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
     allowedHeaders: 'Content-Type, Accept, Authorization',
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   });
   
   // Global validation pipe
